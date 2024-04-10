@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" integrity="sha512-ZnR2wlLbSbr8/c9AgLg3jQPAattCUImNsae6NHYnS9KrIwRdcY9DxFotXhNAKIKbAXlRnujIqUWoXXwqyFOeIQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+
+    </style>
+    <title>Accela EMSE Event List</title>
+</head>
+<body>
+
+    <div class="container">
+        <h1 class="mb-4">Accela Events for EMSE</h1>
+        <h4 class="mb-4">This is a list of events found from exploring the Event Dropdown in version 23.1.4.1</h4>
+
+
+            <div class="form-floating mb-3">
+                <input id="input-search" type="text" placeholder="Search Events" class="form-control">
+                <label for="floatingPassword">Search Events</label>
+              </div>
+
+              <div id="event-count">Total Events: </div>
+              <hr>
+        
+
+        <ul class="list-group list-group-flush" id="event-list">
+            <li class="list-group-item event-name">AAAddressUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update daily address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AAAddressUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update daily address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AAOwnerUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update daily owner.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AAOwnerUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update daily owner.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after activities are deleted.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before activities are deleted.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityInsertAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after activity is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityInsertBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before activity is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after activity is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ActivityUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before activity is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddAgendaAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddAgendaBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before add meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddContractLicenseAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add a license</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddContractLicenseBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before add a license</li></ul></li>
+
+                <li class="list-group-item event-name" >AdditionalInfoUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a Additional Info is updated. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >AdditionalInfoUpdateBefore <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before updating additional info 
+
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >AddLicenseToPublicUserAfter4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add license to public user.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddLicenseValidation4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs when the user add license to user account.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an Address is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an Address is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressConditionAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a condition is added to an address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after create reference address after look up address from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before create reference address after look up address from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove address from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove address from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressSelectOnSpearFormAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event after attach selected addresses on the ref addresses look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressSelectOnSpearFormBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event before attach selected addresses on the ref addresses look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressSetDetailUserExecuteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after address set execute script.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an Address is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AddressUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an Address is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AppHierarchyAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>AppHierarchyAddAfter</li></ul></li>
+                
+                <li class="list-group-item event-name" >AppHierarchyAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>AppHierarchyAddBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >AppHierarchyDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>AppHierarchyDeleteAfter</li></ul></li>
+                
+                <li class="list-group-item event-name" >AppHierarchyDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>AppHierarchyDeleteBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application condition task is added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an application condition task is added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionBatchUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update conditions of approvals.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application condition task is deleted.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an application condition task is deleted.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionOfApprovalUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update conditions of approvals.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionOfApprovalUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update conditions of approvals.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application condition task is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationConditionUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an application condition task is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Delete CAP.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Delete CAP.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationDetailNewAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a ApplicationDetail is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationDetailNewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a ApplicationDetail is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationDetailUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a ApplicationDetail is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationGISGovXMLSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application is create through Accela GIS GovXML.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationSelectAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application is selected.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationSelectBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an application is selected.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationSpecificInfoUpdateAfter <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an Application Specific Information is updated. 
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationSpecificInfoUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an Application Specific Information is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationStatusUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Add a history record after updating the app status.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ApplicationStatusUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an Application Status is updated.</li></ul></li>
+
+
+
+                <li class="list-group-item event-name" >ApplicationSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an application is created. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >ApplicationSubmitBefore <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an application is created. 
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >ApproveContactAssociationforPublicAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after approve contact association for public user.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssetSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Create Asset.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssetSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Create Asset.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssetUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Update Asset.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssetUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Update Asset.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssociateAssetToWorkOrderAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after associate asset to work order.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AssociateAssetToWorkOrderBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before associate asset to work order.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AuditSetDetailUserExecuteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after random audit set execute script.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AutoPayAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after auto pay submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >AutoPayBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before auto pay submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >BatchResultInspectionByCSVAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after do batch result inspection by csv file</li></ul></li>
+                
+                <li class="list-group-item event-name" >BatchResultInspectionByCSVBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before do batch result inspection by csv file</li></ul></li>
+                
+                <li class="list-group-item event-name" >CAEConditionAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a condition is added to a CAE.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CapSetDetailUserExecuteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after cap set execute script.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CommunicationReceivingEmailAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after receiving emails for an account.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CommunicationReceivingEmailBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before receiving emails by account.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CommunicationSendingEmailAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after sending an email.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CommunicationSendingEmailBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before sending an email.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ConditionAssessmentSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Create ConditionAssessment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ConditionAssessmentSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Create ConditionAssessment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ConditionAssessmentUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Update ConditionAssessment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ConditionAssessmentUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Update ConditionAssessment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a contact is added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ContactAddBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressDeactivateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after deactivate contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressDeactivateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before deactivate contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressEditAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after edit contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressEditBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before edit contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after look up contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before look up contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressNewAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after new contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactAddressNewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before new contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactEditAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a contact is edited.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactEditBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ContactEditBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after adding a ref contact to a cap.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before adding a ref contact to a cap.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactRelatedToPublicUserAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after relating a reference contact to a public user account.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactRelatedToPublicUserBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before relating a reference contact to a public user account.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a contact is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a contact is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a Contact is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContactUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a Contact is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ContinuingEducationUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after commit continuing education.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ConvertToRealCAPAfter <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after convert partial cap ID to real cap ID in ACA. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >ConvertToRealCAPBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before convert partial cap ID to real cap ID in ACA.</li></ul></li>
+                
+                <li class="list-group-item event-name" >CopyCapInfoFromTradeNameToTradeLicense<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event is triggere will execute when trade license be created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after delete daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before delete daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityNewAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after new daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityNewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before new daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DailyActivityUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update daily Activity</li></ul></li>
+                
+                <li class="list-group-item event-name" >DeleteContractLicenseAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after delete a license</li></ul></li>
+                
+                <li class="list-group-item event-name" >DeleteContractLicenseBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before delete a license</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after delete document info.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before delete document info.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after assign one or more document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before assign one or more document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after delete  one or more document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before delete  one or more document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update an document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentReviewUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update an document reviewer.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update document info.</li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update document info.</li></ul></li>
+
+                <li class="list-group-item event-name" >DocumentUploadAfter <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after document upload. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >DocumentUploadBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before document upload. 
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >DocumentUploadFailAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>this event occurs after the document upload fail</li></ul></li>
+                
+                <li class="list-group-item event-name" >EducationUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after education update.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EstablishmentAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add a establishment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EstablishmentAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before add a establishment</li></ul></li>
+                
+                <li class="list-group-item event-name" >EstablishmentUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update a establishment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EstablishmentUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update a establishment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an calendat event Information is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an calendar event Information is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an calendar event Information is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an calendar event Information is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventRescheduleAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an calendar event datetime is changed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventRescheduleBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an calendar event datetime is changed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an calendar event Information is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >EventUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an calendar event Information is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExaminationBatchUpdateByCSVAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after upload CSV file to batch update examination.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExaminationRosterUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after register roster, reschedule roster, delete roster, update score.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExaminationSiteUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update exam site.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExaminationUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after commit examination.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExaminationUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a daily examination is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExternalDocReviewCompleted<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after check in document to record.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ExternalPermitStatusChange<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update record status.</li></ul></li>
+                
+                <li class="list-group-item event-name" >FeeAssessAfter 
+                    <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after the application fee is assessed. 
+                    </li></ul></li>
+
+                <li class="list-group-item event-name" >FeeAssessBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before the application fee is assessed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >FeeEstimate4PlanReviewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before fee estimate for plan review created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >FeeEstimateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after doing fee estimate in SPEAR form.</li></ul></li>
+
+                <li class="list-group-item event-name" >FeeEstimateAfter4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event is triggered after doing fee estimate in ACA fee item list page.</li></ul></li>
+                
+                <li class="list-group-item event-name" >FundTransferAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Event happens after fund transfer</li></ul></li>
+                
+                <li class="list-group-item event-name" >FundTransferBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Event happens before fund transfer</li></ul></li>
+                
+                <li class="list-group-item event-name" >GuidesheetUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a guidesheet is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >GuidesheetUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a guidesheet is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionAssignAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after an inspection is assigned.</li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionAssignBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before an inspection is assigned.</li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionCancelBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before one or multiple inspections are canceled.</li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionMultipleScheduleAfter 
+                    <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before one or multiple inspections are scheduled for Manage Inspection.</li></ul></li>
+
+                <li class="list-group-item event-name" >InspectionMultipleScheduleBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after one or multiple inspections are scheduled for Manage Inspection. 
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionResultModifyAfter 
+                    <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after inspection result is modified. 
+                    </li></ul></li>
+
+                <li class="list-group-item event-name" >InspectionResultModifyBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before inspection result is modified.</li></ul></li>
+                
+                <li class="list-group-item event-name" >InspectionResultSubmitAfter <ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after inspection result is entered. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >InspectionResultSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before inspection result is entered.</li></ul></li>
+
+                <li class="list-group-item event-name" >InspectionScheduleAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after one or multiple inspections are scheduled. 
+                </li></ul></li>
+
+                <li class="list-group-item event-name" >InspectionScheduleBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before one or multiple inspections are scheduled. 
+                </li></ul></li>
+                
+                <li class="list-group-item event-name" >InvoiceFeeAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after invoicing fee(manually or automatically)</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicenseProfessionalRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove a license professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicenseProfessionalRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove a license professional</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add a license professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before add a license professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfLookUpSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after adding a ref license to a cap.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfLookUpSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before adding a ref license to a cap.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update a license professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >LicProfUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update a license professional</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs before an meetingGroup meeting Information is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs before an meetingGroup meeting Information is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingCancelAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after schedule meeting</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingCancelBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before schedule meeting</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs after an meetingGroup meeting Information is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs before an meetingGroup meeting Information is removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingRescheduleAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs after an meetingGroup meeting datetime is changed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingRescheduleBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs before an meetingGroup meeting datetime is changed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingScheduleAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after schedule meeting</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingScheduleBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before schedule meeting</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs after an meetingGroup meeting Information is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MeetingUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This meeting occurs before an meetingGroup meeting Information is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >MoveAgendaAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after move meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >MoveAgendaBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before move meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >OnlinePaymentPost<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after user have post online payment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OnlinePaymentRegister<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after submitting payment button in ACA.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OnLoginEventAfter4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after the login validation.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OnLoginEventBefore4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before the login validation.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after create reference owner after look up owner from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before create reference owner after look up owner from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove owner from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove owner from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerSelectOnSpearFormAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event after attach selected addresses on the ref addresses look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >OwnerSelectOnSpearFormBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event before attach selected owners on the ref owners look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ParcelAddAfter</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ParcelAddBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelConditionAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a condition is added to a parcel.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before create reference parcel after look up parcel from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelMergeAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after finish merge parcels.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelMergeBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before finish merge parcels.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove parcel from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove parcel from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelSelectOnSpearFormAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event after attach selected parcels on the ref parcels look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelSelectOnSpearFormBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>Trigger this event before attach selected parcels on the ref parcels look up result list portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelSetDetailUserExecuteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after parcel set execute script.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelSplitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after finish split parcels.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelSplitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after finish split parcels.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ParcelUpdateAfter</li></ul></li>
+                
+                <li class="list-group-item event-name" >ParcelUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>ParcelUpdateBefore</li></ul></li>
+                
+                <li class="list-group-item event-name" >PartTransactionSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Create PartTransaction.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PartTransactionSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Create PartTransaction.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PartTransactionUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Update PartTransaction.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PartTransactionUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Update PartTransaction.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentApplyAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after payment apply submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentApplyBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before payment apply submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentProcessingAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after do pay in payment processing portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentProcessingBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before do pay in payment processing portlet.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentRefundAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after payment processing/POS/record payment refund.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentRefundBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before payment processing/POS/record payment refund.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PaymentRefundSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before record payment refund.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PermitIssueAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after the permit printout is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PermitIssueBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before the permit printout is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProctorAssignedAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after assign multiple proctors.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProctorAssignedBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before assign multiple proctors.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProctorUnassignedAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after delete proctor in Examination Roster</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProctorUnassignedBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs Before delete proctor in Examination Roster</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProfessionalSetDetailUserExecuteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after professional set execute script.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ProximityAlertBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before clicking the proximity alert link of workflow.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PublicUserEditAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update public user.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PublicUserEditBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update public user.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PublishCommentsAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after do publish comments.</li></ul></li>
+                
+                <li class="list-group-item event-name" >PublishCommentsBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before do publish comments.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefContactEditAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update a contact in reference side.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefContactEditBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update a contact in reference side.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefContactNewAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after new a contact in reference side.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefContactNewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before new a contact in reference side.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefExamUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a reference examination is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefExamUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a reference examination is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefLicProfAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after adding a reference licensed professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefLicProfAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before adding a reference licensed professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefLicProfUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after updating a reference licensed professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RefLicProfUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before updating a reference licensed professional.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RegistrationSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after registration submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RegistrationSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before registration submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RejectContactAssociationforPublicAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after reject contact association for public user.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RelatedCapUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after related caps are updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RelatedCapUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before related caps are updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >RemoveAgendaAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >RemoveAgendaBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove meeting agenda</li></ul></li>
+                
+                <li class="list-group-item event-name" >RenewalInfoUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after the permit printout is created.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ReportRunAfterInACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a report is run in ACA</li></ul></li>
+                
+                <li class="list-group-item event-name" >ReportRunBeforeInACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a report is run in ACA</li></ul></li>
+                
+                <li class="list-group-item event-name" >ReportServiceRunAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after run report service.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ReportServiceRunBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before run report service.</li></ul></li>
+                
+                <li class="list-group-item event-name" >SaveAndResumeAfter4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after save and resume .</li></ul></li>
+                
+                <li class="list-group-item event-name" >SearchMultiSeriveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after service search.</li></ul></li>
+                
+                <li class="list-group-item event-name" >SelectLicenseValidation4ACA<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs when the user select license by license drop-down list.</li></ul></li>
+                
+                <li class="list-group-item event-name" >SetPaymentReceiveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Set Payment allocation is recorded.</li></ul></li>
+                
+                <li class="list-group-item event-name" >SetPaymentReceiveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Set Payment allocation is recorded.</li></ul></li>
+                
+                <li class="list-group-item event-name" >ShoppingCartCheckOutBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before check out shopping cart in ACA</li></ul></li>
+                
+                <li class="list-group-item event-name" >StrucEstLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after create reference structure or establishment after look up owner from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StrucEstLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before create reference structure or establishment after look up owner from reference.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StrucEstRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove structure or establishment from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StrucEstRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove structure or establishment from daily.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StructureAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after add a structure.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StructureAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before add a structure.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StructureUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update  a structure.</li></ul></li>
+                
+                <li class="list-group-item event-name" >StructureUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update a structure.</li></ul></li>
+                
+                <li class="list-group-item event-name" >taskEditActionFormBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a workflow task is updated.(Magnum)</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The After script trigger will execute when time accounting entries are about to be added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The Before script trigger will execute when time accounting entries are about to be added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingDeleteAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The After script trigger will execute when time accounting entries are about to be removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingDeleteBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The Before script trigger will execute when time accounting entries are about to be removed.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The After script trigger will execute when time accounting entries are about to be updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TimeAccountingUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>The Before script trigger will execute when time accounting entries are about to be updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TrustAccountSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after Trust Account Submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >TrustAccountSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before Trust Account Submit.</li></ul></li>
+                
+                <li class="list-group-item event-name" >UpdateContactTypeAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after update contactType in Record Contact List.</li></ul></li>
+                
+                <li class="list-group-item event-name" >UpdateContactTypeBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before update contact type in Record Contact List.</li></ul></li>
+                
+                <li class="list-group-item event-name" >V360InspectionResultSubmitAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after result inspection.</li></ul></li>
+
+                <li class="list-group-item event-name" >V360InspectionResultSubmitBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before result inspection.</li></ul></li>
+                
+                <li class="list-group-item event-name" >V360ParcelAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>V360ParcelAddAfter</li></ul></li>
+                
+                <li class="list-group-item event-name" >VoidFeeAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after voiding fee(manually or automatically)</li></ul></li>
+                
+                <li class="list-group-item event-name" >VoidFeeBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before voiding fee(manually)</li></ul></li>
+                
+                <li class="list-group-item event-name" >VoidPaymentAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after void payment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >VoidPaymentBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before void payment.</li></ul></li>
+                
+                <li class="list-group-item event-name" >WorkflowAdhocTaskAddAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a workflow task is added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >WorkflowAdhocTaskAddBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a workflow task is added.</li></ul></li>
+                
+                <li class="list-group-item event-name" >WorkflowAdhocTaskUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a adhoc workflow task is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >WorkflowAdhocTaskUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a adhoc workflow task is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >WorkflowAssignTaskAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a workflow task is assigned a user.</li></ul></li>
+
+                <li class="list-group-item event-name" >WorkflowTaskUpdateAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after a workflow task is updated.</li></ul></li>
+
+                <li class="list-group-item event-name" >WorkflowTaskUpdateBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before a workflow task is updated.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressEditAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after edit cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressEditBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before edit cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressLookUpAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after look up cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressLookUpBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before look up cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressNewAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after new cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressNewBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before new cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressRemoveAfter<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs after remove cross reference contact address.</li></ul></li>
+                
+                <li class="list-group-item event-name" >XRefContactAddressRemoveBefore<ul class="list-group list-group-flush"><li class="list-group-item event-description"><i class="bi bi-caret-right"></i>This event occurs before remove cross reference contact address.</li></ul></li>
+            
+        </ul>
+    </div>
+
+
+
+
+
+
+    <script>
+        const inputSearch = document.getElementById('input-search')
+        const eventList = document.getElementById('event-list')
+        const eventCount = document.getElementById('event-count')
+        function searchEvents(e) {
+            // const searchtext = inputSearch.value.toLowerCase();
+            const searchtext = e.target.value.toLowerCase().trim();
+            const eventNames = eventList.querySelectorAll('li.event-name');
+            const eventDescription = eventList.querySelectorAll('.event-description');
+
+            inputSearch.classList.add('border-success');
+            inputSearch.classList.add('border-3');
+
+
+            let searchResult = 0;
+
+            eventNames.forEach(event => {
+                const eventText = event.firstChild.textContent.toLowerCase().trim();
+                const eventDesc = event.lastChild.textContent.toLowerCase().trim();
+
+                if (eventText.indexOf(searchtext) != -1 || eventDesc.indexOf(searchtext) != -1){
+                    event.style.display = 'block';
+                        searchResult++;
+                } else {
+                    event.style.display = 'none'
+                }
+            })
+            updateEventNumber(searchResult)
+        }
+
+        function totalEvents(){
+            const eventNames = eventList.querySelectorAll('li.event-name');
+            updateEventNumber(eventNames.length)
+        }
+
+        function updateEventNumber(total){
+            if (total === 0){
+                eventCount.innerHTML = `No Events Found`
+                eventCount.classList.add('text-danger')
+                inputSearch.classList.remove('border-success');
+                inputSearch.classList.add('border-danger');
+                inputSearch.classList.add('border-3');
+
+            } else {
+                eventCount.innerHTML= `Total Events: ${total}`
+                eventCount.classList.remove('text-danger')
+                inputSearch.classList.remove('border-danger');
+
+            }
+            if (inputSearch.value === ''){
+                inputSearch.classList.remove('border-success');
+                inputSearch.classList.remove('border-danger');
+                inputSearch.classList.remove('border-3');
+                }
+        }
+
+        document.addEventListener('DOMContentLoaded', totalEvents);
+        inputSearch.addEventListener('input', searchEvents)
+    </script>
+</body>
+</html>
+

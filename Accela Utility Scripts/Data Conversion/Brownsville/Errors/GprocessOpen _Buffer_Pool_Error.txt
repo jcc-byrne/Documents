@@ -1,0 +1,23 @@
+
+There is insufficient memory available in the buffer pool.
+There is insufficient system memory in resource pool 'internal' to run this query.
+There is insufficient system memory in resource pool 'internal' to run this query.
+There is insufficient system memory in resource pool 'internal' to run this query.
+There is insufficient system memory in resource pool 'internal' to run this query.
+There is insufficient system memory in resource pool 'internal' to run this query.
+During undoing of a logged operation in database 'BROWNSVILLE_SUPP' (page (0:0) if any), an error occurred at log record ID (2016:767294:275). Typically, the specific failure is logged previously as an error in the operating system error log. Restore the database or file from a backup, or repair the database.
+The log for database 'BROWNSVILLE_SUPP' is not available. Check the operating system error log for related error messages. Resolve any errors and restart the database.
+During undoing of a logged operation in database 'BROWNSVILLE_SUPP' (page (0:0) if any), an error occurred at log record ID (2016:1016014:84). Typically, the specific failure is logged previously as an error in the operating system error log. Restore the database or file from a backup, or repair the database.
+During undoing of a logged operation in database 'BROWNSVILLE_SUPP' (page (0:0) if any), an error occurred at log record ID (2007:944278:1). Typically, the specific failure is logged previously as an error in the operating system error log. Restore the database or file from a backup, or repair the database.
+Cannot continue the execution because the session is in the kill state.
+A severe error occurred on the current command.  The results, if any, should be discarded.
+
+   at System.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at System.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at System.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at System.Data.SqlClient.SqlCommand.RunExecuteNonQueryTds(String methodName, Boolean async, Int32 timeout, Boolean asyncWrite)
+   at System.Data.SqlClient.SqlCommand.InternalExecuteNonQuery(TaskCompletionSource`1 completion, String methodName, Boolean sendToPipe, Int32 timeout, Boolean& usedCache, Boolean asyncWrite, Boolean inRetry)
+   at System.Data.SqlClient.SqlCommand.ExecuteNonQuery()
+   at GProcessOpenAA10.Class_a3.Clear()
+[DELETE FROM T_GPROCESS]
+

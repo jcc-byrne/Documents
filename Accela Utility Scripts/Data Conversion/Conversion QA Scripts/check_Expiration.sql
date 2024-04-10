@@ -1,0 +1,8 @@
+select p.B1_ALT_ID, e.EXPIRATION_DATE, e.EXPIRATION_STATUS
+from B1PERMIT p
+join B1_EXPIRATION e on 1=1
+and p.B1_PER_ID1 = e.B1_PER_ID1
+and p.B1_PER_ID2 = e.B1_PER_ID2
+and p.B1_PER_ID3 = e.B1_PER_ID3
+where p.B1_PER_GROUP = 'ABC'
+and p.B1_ALT_ID = 'LIQ-LIC-01343'

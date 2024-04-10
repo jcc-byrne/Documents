@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Accela Pageflow Test</title>
+  </head>
+  <body>
+    <div class="actionbar_bottom">
+      <div class="ACA_Row ACA_Grid_Row">
+        <div class="ACA_FLeft ACA_LiLeft">
+          <ul>
+            <li>
+              <div
+                id="ctl00_PlaceHolderMain_actionBarBottom_btnContinue_container"
+              >
+                <div class="ACA_Continue ACA_LgButton_FontSize">
+                  <a
+                    onclick="return Continue(this);"
+                    id="ctl00_PlaceHolderMain_actionBarBottom_btnContinue"
+                    accesskey="3"
+                    title="Continue Application »"
+                    href='javascript:WebForm_DoPostBackWithOptions(new WebForm_PostBackOptions("ctl00$PlaceHolderMain$actionBarBottom$btnContinue", "", true, "", "", false, true))'
+                    ><span>Continue Application &raquo;</span></a
+                  >
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div
+          id="ctl00_PlaceHolderMain_actionBarBottom_divShowSaveandResume"
+          class="ACA_FRight ACA_AlignRightOrLeft ACA_Resume"
+        >
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <span
+                  id="ctl00_PlaceHolderMain_actionBarBottom_lblSaveAndResume"
+                  class="font13px"
+                  >Save and resume later</span
+                >
+              </td>
+              <td>
+                <div class="ACA_SaveAndResumeLater_Icon">
+                  <a
+                    href="javascript:void(0);"
+                    id="ctl00_PlaceHolderMain_actionBarBottom_btnSave"
+                    onclick="SetNotAsk(); doSaveAndResume();"
+                    accesskey="k"
+                    class="NotShowLoading"
+                    title="Save your changes and resume later. When you return you will start on the first page of the application to ensure you have completed all requirements."
+                  >
+                  </a>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div class="clear"></div>
+    </div>
+
+
+    <script>
+      function addBackBtn(e) {
+        console.log('content loaded');
+        var continueBtn = document.getElementById(
+          'ctl00_PlaceHolderMain_actionBarBottom_btnContinue_container'
+        );
+
+        var parentLi = continueBtn.parentElement;
+        var newLi = document.createElement('li');
+
+        if (continueBtn != null) {
+          var div = document.createElement('div');
+          div.className = 'ACA_Continue ACA_LgButton_FontSize';
+          div.style.padding = '12px 10px !important';
+
+          var url = document.referrer;
+          var anchor = createAnchor(url);
+
+          div.appendChild(anchor);
+          console.log(div);
+          // empty div to match Accela layout
+          var div2 = document.createElement('div');
+          div2.appendChild(div);
+          newLi.appendChild(div2);
+          parentLi.insertAdjacentElement('beforebegin', newLi);
+        } else {
+          console.log('div is null');
+        }
+      }
+
+      function createAnchor(url){
+        var a = document.createElement('a');
+        var backText = document.createTextNode('« Back')
+          // a.textContent = '« Back';
+          a.appendChild(backText);
+          a.style.textDecoration = 'none';
+          a.style.outline = 'none';
+          a.style.color = 'white';
+          a.style.fontSize = '14px';
+          a.style.fontWeight = 'bold';
+          a.style.padding = '0px';
+          a.href = url;
+          return a;
+      }
+
+      document.addEventListener('DOMContentLoaded', addBackBtn);
+    </script>
+  </body>
+</html>
