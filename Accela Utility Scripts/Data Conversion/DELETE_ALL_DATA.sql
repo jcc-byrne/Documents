@@ -1,7 +1,7 @@
 SET QUOTED_IDENTIFIER ON;
 
-DECLARE @SPC VARCHAR(30) = 'PCR';
-DECLARE @PREDICATE varchar(max) = 'SERV_PROV_CODE = ''PCR'''
+DECLARE @SPC VARCHAR(30) = 'OLWSD';
+DECLARE @PREDICATE varchar(max) = 'SERV_PROV_CODE = ''OLWSD'''
 PRINT @PREDICATE;
 
 --SET @PREDICATE = CAST(CAST(N'' AS XML).value('xs:base64Binary(sql:variable("@PREDICATE"))','varbinary(max)') AS nvarchar(max));

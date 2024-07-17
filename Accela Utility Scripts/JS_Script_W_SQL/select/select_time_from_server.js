@@ -1,34 +1,17 @@
-var debug = ''
-var showDebug = true;
-var altId = '2024-006'
-var capId = aa.cap.getCapID(altId); //CapIDModel
-var csm;
-var capModel;
+// var capId = aa.cap.getCapID("MHP-A24-00002").getOutput();
 
-if (capId.getSuccess()){
-  capId = capId.getOutput();
-  csm = aa.cap.getCap(capId).getOutput(); //CapScriptModel
-  capModel = aa.cap.getCap(capId).getOutput().getCapModel(); //CapModel
-} else {
-  logDebug('Error finding altId, reason: ' + capId.getErrorMessage())
-}
+//exploreObject(aa.date.agencyTimezoneDate)
+//exploreObject(aa.date.currentDate)
 
-/**
- * START EXPLORATION
- */
-
-exploreObject(capId)
+var databaseTime = aa.db.select("select getdate()",[]).getOutput();
+aa.print('SQL Database time: ' + databaseTime)
 
 
+// var tzDate = aa.date.agencyTimezoneDate
+// aa.print('Agency Time Zone Date (aa.date.agencyTimezoneDate): ' + tzDate.getHourOfDay() + ':' + tzDate.getMinute())
 
-/**
- * END EXPLORATION
- */
-
-if (showDebug){
-aa.env.setValue('ScriptReturnCode', '1');
-aa.env.setValue('ScriptReturnMessage', debug);
-}
+var currDate= aa.date.currentDate
+aa.print('Agency Current Date(aa.date.currentDate): ' + currDate.getHourOfDay() + ':' + currDate.getMinute())
 
 
 function exploreObject(objExplore) {
@@ -76,8 +59,4 @@ function exploreObject(objExplore) {
   
   }
   
-  function logDebug(str){
-    debug += str + '<br>'; 
-    aa.print(str)
-  }
-
+  function logDebug(str){aa.print(str)}

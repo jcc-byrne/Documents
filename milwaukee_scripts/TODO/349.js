@@ -1,12 +1,12 @@
-var myCapId = "ALIQR-R24-00001";
+var myCapId = "PEP-A24-00008";
 var myUserId = 'ADMIN';
 
 /* ASA  */ //var eventName = "ApplicationSubmitAfter";
-/* WTUA */ //var eventName = "WorkflowTaskUpdateAfter"; wfTask = "Issuance"; wfStatus = "Issued"; wfHours = 10; wfDate = "01/27/2015"; wfComment = "Test Comment"; wfStaffUserID = 'Admin'
+/* WTUA */ var eventName = "WorkflowTaskUpdateAfter"; wfTask = "Issuance"; wfStatus = "Issued"; wfHours = 10; wfDate = "01/27/2015"; wfComment = "Test Comment"; wfStaffUserID = 'Admin'
 /* IRSA */ //var eventName = "InspectionResultSubmitAfter" ; inspResult = "Pass"; inspResultComment = "Comment";  inspType = "Business License Inspection"; inspId = '11412'; inspComment = 'Comment'; var inspResultDate = "01/12/2023"; var inspGroup = "Building"; var inspSchedDate = "01/13/2023";
 /* ISA  */ //var eventName = "InspectionScheduleAfter" ; inspType = "Roofing"
 /* PRA  */ //var eventName = "PaymentReceiveAfter";
-/* CTRCA  */ var eventName = "ConvertToRealCAPAfter";
+/* CTRCA  */ //var eventName = "ConvertToRealCAPAfter";
 /* IFA */ //var eventName = 'InvoiceFeeAfter' ; var InvoiceNbrArray = []
 //var eventName = 'ApplicationSpecificInfoUpdateAfter';
 //var eventName = 'WorkflowAssignTaskAfter'
@@ -126,74 +126,40 @@ try {
   showDebug = true;
   publicUser = true;
 
-  debug = ''
+//   debug = ''
 
   try {
-    if (appMatch('Licenses/Business/*/Renewal') || appMatch('Licenses/Mobile Vendor/*/Renewal') || appMatch('Licenses/Parking/*/Renewal') || appMatch('Licenses/Transportation/*/Renewal') || appMatch('ABC/*/*/Renewal')){
-    var pCapLic = getParentCapID4Renewal();
-  
-    if (pCapLic){
+    var isFoodLicense = false;
+    var asit = loadASITables()
+    logDebug(asit)
 
-      var licensePeople = getPeople(pCapLic);
-      var renewalPeople = getPeople(capId); //Array of CapContactScriptModel
+    var licenseASIT = loadASITable('CURRENT LICENSES', capId);
+    if (licenseASIT && licenseASIT.length > 0){
 
-      var conditionMessage = '';
-      var addCondition = false;
+        for (i in licenseASIT){
+            licNbr = licenseASIT[i]['License Number']
+            applyChange = licenseASIT[i]['Apply Change']
 
-      for (i in renewalPeople){
-
-        var found = false;
-        var renewalPerson = renewalPeople[i]; // CapContractScriptModel
-        var renewalPersonObject = new contactObjLocal(renewalPerson);
-        var renType = renewalPersonObject.type;
-
-        logDebug('Comparing ' + renType + ': ' + renewalPersonObject.getContactName())
-
-        for (k in licensePeople){
-          var licensePerson = licensePeople[k];
-          var licensePersonObject = new contactObjLocal(licensePerson);
-          var licType = licensePersonObject.type;
-
-
-          if (renType == licType){
-            var peopMatch = renewalPersonObject.equals(licensePersonObject);
-          }
-
-          // logDebug('Match on ' + k + ' ' + peopMatch)
-          // var licType = licensePersonObject.type;
-          // if (licensePersonObject == renewalPersonObject){
-          //   found = true;
-          //   logDebug('People match!')
-          //   break;
-          // }
-
+            if (applyChange == 'Yes'){
+                logDebug('Is Food License: ' + licNbr)
+            }
         }
 
-
-      }
- 
-
-      if (addCondition && conditionMessage != ''){
-        // logDebug('Message: ' + conditionMessage)
-  
-        addAppCondition('Changes', 'Applied', 'Change to Contacts', conditionMessage, 'Notice')
-  
-        var capConditions = aa.capCondition.getCapConditions(capId, 'Changes');
-        if (capConditions.getSuccess()){
-  
-          capConditions = capConditions.getOutput();
-          for (i in capConditions){
-            condit = capConditions[i];
-            condit.setDisplayConditionNotice('Y');
-            condit.setIncludeInConditionName('Y');
-            var updateCondit = aa.capCondition.editCapCondition(condit);
-          }
-  
-        }
-  
-      }
     }
-  }
+
+
+    if (isFoodLicense){
+        var eParams = aa.util.newHashtable();
+        getRecordParams4Notification(eParams);
+        addParameter(eParams, "$$recordAlias$$", appTypeAlias);
+        getDepartmentParams4Notification(eParams, 'License Management')
+        sendNotification('', '', '', 'LIC_NOTIFY_HD', eParams, new Array())
+    }
+
+
+
+
+
   } catch (err) {
     logDebug(err.message);
     logDebug(err.stack);
@@ -767,4 +733,61 @@ function contactObjLocal(ccsm)  {
             return resultArray;
             }
                 
+        }
+
+
+        function getDepartmentParams4Notification(eParamsHash, deptName) {
+
+            if (deptName == null) {
+                return eParamsHash;
+            }
+            var rptInfoStdArray = getStandardChoiceArray("DEPARTMENT_INFORMATION");
+        
+            var foundDept = false;
+        
+            var valDesc = null;
+            var defaultDeptValDesc = null;
+            for (s in rptInfoStdArray) {
+                if (rptInfoStdArray[s]["active"] == "A" && String(rptInfoStdArray[s]["value"]).toUpperCase() == String(deptName).toUpperCase()) {
+                    valDesc = rptInfoStdArray[s]["valueDesc"];
+                    if (isEmptyOrNull(valDesc)) {   
+                        return eParamsHash;
+                    }
+                    valDesc = String(valDesc).split("|");
+                    foundDept = true;
+                    break;
+                }//active and name match
+            }//all std-choice rows
+        
+            if (!foundDept) {
+                logDebug('line 349 No department found, use default values')
+                for (s in rptInfoStdArray) {
+                    if (rptInfoStdArray[s]["active"] == "A" && String(rptInfoStdArray[s]["value"]).toUpperCase() == "DEFAULT") {
+                        valDesc = rptInfoStdArray[s]["valueDesc"];
+                        if (isEmptyOrNull(valDesc)) {      
+                            return eParamsHash;
+                        }
+                        valDesc = String(valDesc).split("|");
+                        foundDept = true;
+                        break;
+                    }//active and name match
+                }
+            }
+        
+            if (!isEmptyOrNull(valDesc)) {
+                for (e in valDesc) {
+                    var parameterName = "";
+                    var tmpParam = valDesc[e].split(":");
+                    if (tmpParam[0].indexOf("$$") < 0){
+                        parameterName = "$$" + tmpParam[0].replace(/\s+/g, '') + "$$";
+                    }
+                    else{
+                        parameterName = tmpParam[0];
+                    }
+                        logDebug('Param Name: ' + parameterName + ' Param Value: ' + tmpParam[1])
+                    addParameter(eParamsHash, parameterName, tmpParam[1]);
+                }//for all parameters in each row
+            }//has email parameters
+        
+            return eParamsHash;
         }

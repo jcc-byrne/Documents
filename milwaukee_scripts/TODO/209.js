@@ -1,4 +1,4 @@
-var myCapId = "ALIQR-R24-00001";
+var myCapId = "TCOP-A24-00002";
 var myUserId = 'ADMIN';
 
 /* ASA  */ //var eventName = "ApplicationSubmitAfter";

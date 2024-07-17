@@ -1,12 +1,12 @@
-var myCapId = "ALIQR-R24-00001";
+var myCapId = "PEDI-257";
 var myUserId = 'ADMIN';
 
 /* ASA  */ //var eventName = "ApplicationSubmitAfter";
 /* WTUA */ //var eventName = "WorkflowTaskUpdateAfter"; wfTask = "Issuance"; wfStatus = "Issued"; wfHours = 10; wfDate = "01/27/2015"; wfComment = "Test Comment"; wfStaffUserID = 'Admin'
 /* IRSA */ //var eventName = "InspectionResultSubmitAfter" ; inspResult = "Pass"; inspResultComment = "Comment";  inspType = "Business License Inspection"; inspId = '11412'; inspComment = 'Comment'; var inspResultDate = "01/12/2023"; var inspGroup = "Building"; var inspSchedDate = "01/13/2023";
 /* ISA  */ //var eventName = "InspectionScheduleAfter" ; inspType = "Roofing"
-/* PRA  */ //var eventName = "PaymentReceiveAfter";
-/* CTRCA  */ var eventName = "ConvertToRealCAPAfter";
+/* PRA  */ var eventName = "PaymentReceiveAfter";
+// /* CTRCA  */ var eventName = "ConvertToRealCAPAfter";
 /* IFA */ //var eventName = 'InvoiceFeeAfter' ; var InvoiceNbrArray = []
 //var eventName = 'ApplicationSpecificInfoUpdateAfter';
 //var eventName = 'WorkflowAssignTaskAfter'
@@ -128,181 +128,45 @@ try {
 
   debug = ''
 
-  try {
-    if (appMatch('Licenses/Business/*/Renewal') || appMatch('Licenses/Mobile Vendor/*/Renewal') || appMatch('Licenses/Parking/*/Renewal') || appMatch('Licenses/Transportation/*/Renewal') || appMatch('ABC/*/*/Renewal')){
-    var pCapLic = getParentCapID4Renewal();
-  
-    if (pCapLic){
 
-      var licensePeople = getPeople(pCapLic);
-      var renewalPeople = getPeople(capId); //Array of CapContactScriptModel
+var FeeSeqList =[71744050,71744053]
 
-      var conditionMessage = '';
-      var addCondition = false;
+  try{
 
-      for (i in renewalPeople){
+    if (publicUser && (appMatch('ABC/*/*/License') || appMatch('Licenses/*/*/License')))
+    for (i in FeeSeqList){
+        var feeSeq = FeeSeqList[i]
+        var ff = aa.fee.getFeeItemByPK(capId, feeSeq).getOutput() //F4FeeItemScriptModel
+        if (ff.getFeeCod() == 'LIC_GEN_001'){
+            var asiExpDD = getAppSpecific('Override Expiration Date')
 
-        var found = false;
-        var renewalPerson = renewalPeople[i]; // CapContractScriptModel
-        var renewalPersonObject = new contactObjLocal(renewalPerson);
-        var renType = renewalPersonObject.type;
+            if (asiExpDD){
 
-        logDebug('Comparing ' + renType + ': ' + renewalPersonObject.getContactName())
+                var newStatus = '';
 
-        for (k in licensePeople){
-          var licensePerson = licensePeople[k];
-          var licensePersonObject = new contactObjLocal(licensePerson);
-          var licType = licensePersonObject.type;
+                if (dateDiff(sysDate, asiExpDD) <= 60){
+                    newStatus = 'About to Expire';
+                } else {
+                    newStatus = null;
+                }
+                licEditExpInfo(newStatus, asiExpDD)
 
-
-          if (renType == licType){
-            var peopMatch = renewalPersonObject.equals(licensePersonObject);
-          }
-
-          // logDebug('Match on ' + k + ' ' + peopMatch)
-          // var licType = licensePersonObject.type;
-          // if (licensePersonObject == renewalPersonObject){
-          //   found = true;
-          //   logDebug('People match!')
-          //   break;
-          // }
-
+                var eParams = aa.util.newHashtable();
+                addParameter(eParams, '$$expDate$$', asiExpDD)
+                getRecordParams4Notification(eParams);
+                sendNotification('', '', '', 'LIC_PRORATE_PAID', eParams, new Array(), capId)
+                editAppSpecific('Override Expiration Date', null)
+            }
+         break   
         }
-
-
-      }
- 
-
-      if (addCondition && conditionMessage != ''){
-        // logDebug('Message: ' + conditionMessage)
-  
-        addAppCondition('Changes', 'Applied', 'Change to Contacts', conditionMessage, 'Notice')
-  
-        var capConditions = aa.capCondition.getCapConditions(capId, 'Changes');
-        if (capConditions.getSuccess()){
-  
-          capConditions = capConditions.getOutput();
-          for (i in capConditions){
-            condit = capConditions[i];
-            condit.setDisplayConditionNotice('Y');
-            condit.setIncludeInConditionName('Y');
-            var updateCondit = aa.capCondition.editCapCondition(condit);
-          }
-  
-        }
-  
-      }
     }
-  }
+
+
   } catch (err) {
     logDebug(err.message);
     logDebug(err.stack);
   };
-  //findMatchingPeople(capId);
 
-
-
-
-
-
-  /**
-   * Get records associated to Business Entity. If contacts don't match on current CAP, place a condition and list the records where the contacts don't match
-   */
-
-  // var contactBusinessEntity = getContactByType('Business Entity', capId)
-  // // var businessEntityID = 
-  // var capPeople = getPeople(capId);
-  // // exploreObject(capPeople[0].getPeople())
-
-
-  // // var isExistedPeople = capPeople[0].getPeople(); //PeopleMOdel
-
-  // // var isExisted = aa.people.isExisted(capId, isExistedPeople)
-  // // exploreObject(isExisted)
-
-
-  // logDebug('Number of contacts: ' + capPeople.length)
-
-  // for (i in capPeople){
-  //   var capPerson = capPeople[i]
-  //   var capPeopleModel = capPerson.getPeople(); //PeopleModel
-  //   var contactType = capPeopleModel.getContactType();
-  //   if(contactType != 'Business Entity'){
-  //     continue;
-  //   }
-
-  //   var capContactModel = capPerson.getCapContactModel();
-  //   var refNumber = capContactModel.getRefContactNumber();
-
-  //   // Step 1 - get the records associated with the Business Entity
-  //   var psm = aa.people.createPeopleModel().getOutput()
-  //   psm.setContactSeqNumber(refNumber);
-  //   var cResult = aa.people.getCapIDsByRefContact(psm);  
-
-  //   if (cResult.getSuccess()){
-  //     var capsToSearch = cResult.getOutput(); 
-
-  //     //for testing
-  //     var vCap = capsToSearch[0];
-  //     var vCapIdModel = vCap.getCapID()
-  //     var vCapPeople = aa.people.getCapContactByCapID(vCapIdModel).getOutput()
-  //     // exploreObject(vCapPeople[0])
-  //     // exploreObject(capPeople)
-  //     //end for testing
-
-  //     var contactsMatch = true;
-  //     var recordMismatch = new Array()
-  //     var reasonMessage = ''
-
-  //     for (i in capsToSearch){
-  //       var vCap = capsToSearch[i]; //CapIDScriptModel
-  //       var vCapIdModel = vCap.getCapID()
-  //       var vCapScriptModel = aa.cap.getCap(vCapIdModel).getOutput();
-  //       var vCapModel = vCapScriptModel.getCapModel();
-  //       var vCapAltId = vCapModel.getAltID();
-  //       logDebug('Comparing contacts on ' + vCapAltId)
-
-  //       //Step 2 - get the contacts for each cap, if they do not match then add the Alt ID to recordMistmatch array
-  //       var vCapPeople = aa.people.getCapContactByCapID(vCapIdModel).getOutput();
-  //       logDebug('Number of contacts: ' + vCapPeople.length)
-
-  //       //First Check
-  //       if (vCapPeople.length != capPeople.length){
-  //         logDebug('Number of contacts do not match, add to array')
-  //         recordMismatch.push(vCapAltId)
-  //         if (capPeople.length < vCapPeople.length){
-  //           reasonMessage += '<br>There are more contacts on ' + capIDString;
-  //         } else {
-  //           reasonMessage += '<br>There are more contacts on ' + vCapAltId;
-  //         }
-  //         // continue;
-  //       }
-
-  //       //Second Check - Compare first name and last name
-  //       logDebug('Compare Names')
-
-  //       for (i in vCapPeople){
-  //         var vCapPerson = vCapPeople[i];
-  //         var vCapPersonPeopleModel = vCapPerson.getPeople()
-  //         var existsOnOG = aa.people.isExisted(capId,vCapPersonPeopleModel)
-
-  //         exploreObject(existsOnOG)
-
-
-  //       }
-
-
-  //     }
-
-  //     if (recordMismatch.length > 0){
-  //       logDebug('There is a discrepancy in contacts on the following records: ' + recordMismatch.join(', '))
-  //       logDebug(reasonMessage)
-  //     }  else {
-  //       logDebug('Contacts appear to match')
-  //     }
-  //   }
-
-  // }
 
 
 

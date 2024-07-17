@@ -24,14 +24,14 @@ var maxEntries = 99;			// Maximum number of std choice entries.  Entries must be
 /*------------------------------------------------------------------------------------------------------/
 | END User Configurable Parameters
 /------------------------------------------------------------------------------------------------------*/
-var GLOBAL_VERSION = 3.0;
+var GLOBAL_VERSION = 3.22;
 
 var cancel = false;
 
 var vScriptName = aa.env.getValue("ScriptCode");
 var vEventName = aa.env.getValue("EventName");
 
-var startDate = new Date();
+var startDate = new Date(aa.util.now());
 var startTime = startDate.getTime();
 var message =	"";									// Message String
 if (typeof debug === 'undefined') {
@@ -52,7 +52,7 @@ if (currentUserID.indexOf("PUBLICUSER") == 0){
 	currentUserID = "ADMIN"; 
 	publicUser = true;
 }
-if(currentUserID != null) {
+if(currentUserID != null && currentUserID != "") {
 	systemUserObj = aa.person.getUser(currentUserID).getOutput();  	// Current User Object
 }
 
@@ -68,10 +68,11 @@ logDebug("SCRIPT VERSION : " + SCRIPT_VERSION);
 logDebug("GLOBAL VERSION : " + GLOBAL_VERSION);
 
 
-var capId = null, //
+var capId = null,
 	cap = null,
 	capIDString = "",
 	appTypeResult = null,
+	appTypeAlias = "",
 	appTypeString = "",
 	appTypeArray = new Array(),
 	capName = null,
@@ -105,14 +106,22 @@ if(capId == null){
 		sca = String(aa.env.getValue("CapID")).split("-");
 		capId = aa.cap.getCapID(sca[0],sca[1],sca[2]).getOutput();
 	}
+	else if(aa.env.getValue("CapModel") != "") {
+		var capId = aa.env.getValue("CapModel").getCapID();
+	}
+	else if(aa.env.getValue("CapIdModel") != "") {
+		var capId = aa.env.getValue("CapIdModel");
+	}
 }
+
 if(capId != null){
 	servProvCode = capId.getServiceProviderCode();
-	capIDString = capId.getCustomID(); //returns altID like 'RES23-00015'
+	capIDString = capId.getCustomID();
 	cap = aa.cap.getCap(capId).getOutput();
 	appTypeResult = cap.getCapType();
-	appTypeString = appTypeResult.toString(); 
-	appTypeArray = appTypeString.split("/"); //returns an array like ['Building', 'Residential', 'New', 'NA']
+	appTypeAlias = appTypeResult.getAlias();
+	appTypeString = appTypeResult.toString();
+	appTypeArray = appTypeString.split("/");
 	if(appTypeArray[0].substr(0,1) !="_") 
 	{
 		var currentUserGroupObj = aa.userright.getUserRight(appTypeArray[0],currentUserID).getOutput()
@@ -156,6 +165,7 @@ if(capId != null){
 	logDebug("currentUserGroup = " + currentUserGroup);
 	logDebug("systemUserObj = " + systemUserObj.getClass());
 	logDebug("appTypeString = " + appTypeString);
+	logDebug("appTypeAlias = " + appTypeAlias);
 	logDebug("capName = " + capName);
 	logDebug("capStatus = " + capStatus);
 	logDebug("fileDate = " + fileDate);
