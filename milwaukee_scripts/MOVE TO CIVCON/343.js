@@ -1,14 +1,14 @@
-var myCapId = "PEP-A24-00008";
+var myCapId = "BFOOD-R24-00024";
 var myUserId = 'ADMIN';
 
 /* ASA  */ //var eventName = "ApplicationSubmitAfter";
-/* WTUA */ //var eventName = "WorkflowTaskUpdateAfter"; wfTask = "Issuance"; wfStatus = "Issued"; wfHours = 10; wfDate = "01/27/2015"; wfComment = "Test Comment"; wfStaffUserID = 'Admin'
+/* WTUA */ var eventName = "WorkflowTaskUpdateAfter"; wfTask = "Issuance"; wfStatus = "Issued"; wfHours = 10; wfDate = "01/27/2015"; wfComment = "Test Comment"; wfStaffUserID = 'Admin'
 /* IRSA */ //var eventName = "InspectionResultSubmitAfter" ; inspResult = "Pass"; inspResultComment = "Comment";  inspType = "Business License Inspection"; inspId = '11412'; inspComment = 'Comment'; var inspResultDate = "01/12/2023"; var inspGroup = "Building"; var inspSchedDate = "01/13/2023";
 /* ISA  */ //var eventName = "InspectionScheduleAfter" ; inspType = "Roofing"
 /* PRA  */ //var eventName = "PaymentReceiveAfter";
 /* CTRCA  */ //var eventName = "ConvertToRealCAPAfter";
 /* IFA */ //var eventName = 'InvoiceFeeAfter' ; var InvoiceNbrArray = []
-var eventName = 'ApplicationSpecificInfoUpdateAfter';
+// var eventName = 'ApplicationSpecificInfoUpdateAfter';
 //var eventName = 'WorkflowAssignTaskAfter'
 
 var useProductScript = true; // set to true to use the "productized" master scripts (events->master scripts), false to use scripts from (events->scripts)
@@ -40,43 +40,23 @@ try {
   showDebug = true;
   publicUser = true;
 
-//   debug = ''
+  debug = ''
+
+//TASK 343 - STOP ISSUANCE IF THERE ARE STILL APPLIED CONDITIONS 
 
   try {
 
-    var pCap = getParent(capId);
-    exploreObject(pCap)
+    if (wfTask =='Issuance' && wfStatus == 'Issued'){
+        var appHasAppliedCondition = appHasCondition(null, 'Applied', null, null);
 
-
-    var pCapList = aa.cap.getProjectParents(capId, 1)
-
-    if (pCapList.getSuccess()){
-        pCapList = pCapList.getOutput();
-
-        for (i in pCapList){
-            var pCapId = pCapList[i]
-            var pCapModel = pCapId.getCapModel()
-            var pAltId = pCapModel.getAltID()
-            var pCapType = String(pCapModel.getCapType());
-            logDebug('Checking: ' + pAltId)
-
-            // if (appMatch('Licenses/*/*/License', pAltId)){
-            //     logDebug('Checking: ' + pAltId)
-            //     // exploreObject(pCapModel)
-
-            // }
-
-
-
-
+        if (appHasAppliedCondition){
+            showDebug = false;
+            showMessage = true;
+            comment('Renewal still has Applied Conditions. Resolve Conditions prior to renewal')
+            cancel = true;
         }
-
     }
-
-
-
-
-
+    
   } catch (err) {
     logDebug(err.message);
     logDebug(err.stack);
@@ -95,6 +75,19 @@ try {
 aa.env.setValue('ScriptReturnCode', '1');
 aa.env.setValue('ScriptReturnMessage', debug);
 // END SCRIPT TESTER
+
+if (cancel)
+    {
+    aa.env.setValue("ScriptReturnCode", "1");
+    if (showMessage) aa.env.setValue("ScriptReturnMessage", "<font color=red><b>Action Cancelled</b></font><br><br>" + message);
+    if (showDebug) 	aa.env.setValue("ScriptReturnMessage", "<font color=red><b>Action Cancelled</b></font><br><br>" + debug);
+    }
+else
+    {
+    aa.env.setValue("ScriptReturnCode", "0");
+    if (showMessage) aa.env.setValue("ScriptReturnMessage", message);
+    if (showDebug) 	aa.env.setValue("ScriptReturnMessage", debug);
+    }
 
 
 
@@ -148,3 +141,51 @@ function exploreObject(objExplore) {
 
 
 
+  function editCapConditionStatus_(pType,pDesc,pStatus,pStatusType, itemCap) {
+	// updates a condition with the pType and pDesc
+	// to pStatus and pStatusType, returns true if updates, false if not
+	// will not update if status is already pStatus && pStatusType
+	// all parameters are required except for pType
+
+	if (pType==null)
+		var condResult = aa.capCondition.getCapConditions(itemCap);
+	else
+		var condResult = aa.capCondition.getCapConditions(itemCap,pType);
+		
+	if (condResult.getSuccess())
+		var capConds = condResult.getOutput();
+	else
+		{ 
+		logMessage("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+		logDebug("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+		return false;
+		}
+
+
+	for (cc in capConds) {
+		var thisCond = capConds[cc];
+		var cStatus = thisCond.getConditionStatus();
+		var cStatusType = thisCond.getConditionStatusType();
+		var cDesc = thisCond.getConditionDescription();
+		var cImpact = thisCond.getImpactCode();
+		logDebug('Original Status/Type: ' + cStatus + ": " + cStatusType);
+
+
+
+		
+		if (cDesc.toUpperCase() == pDesc.toUpperCase()) {
+			if (!pStatus.toUpperCase().equals(cStatus.toUpperCase())) {
+				thisCond.setConditionStatus(pStatus);
+				thisCond.setConditionStatusType(pStatusType);
+				thisCond.setImpactCode("");
+				aa.capCondition.editCapCondition(thisCond);
+
+                logDebug('Updated CAP Condition')
+				// return true; // condition has been found and updated
+			} else {
+				logDebug("ERROR: condition found but already in the status of pStatus and pStatusType");
+				// return false; // condition found but already in the status of pStatus and pStatusType
+			}
+		}
+	}
+}

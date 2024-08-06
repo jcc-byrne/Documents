@@ -1,4 +1,4 @@
-var myCapId = "PEP-A24-00008";
+var myCapId = "TCOP-A24-00002";
 var myUserId = 'ADMIN';
 
 /* ASA  */ //var eventName = "ApplicationSubmitAfter";
@@ -40,38 +40,45 @@ try {
   showDebug = true;
   publicUser = true;
 
-//   debug = ''
+  // debug = ''
+
+//TASK 340 - EMAIL HEALTH DISTRICT IF FOOD LICENSE IN TCOP
 
   try {
 
-    var pCap = getParent(capId);
-    exploreObject(pCap)
+    var currLicASIT = loadASITable('CURRENT LICENSES')
+    var foodLicenseExists = false;
 
+    currLicASIT.forEach(function (row){
+        var applyChange = row['Apply Change'].toString();
+        var record = row['License Number'].toString()
+        if (applyChange.toUpperCase() == 'YES'){
 
-    var pCapList = aa.cap.getProjectParents(capId, 1)
+            var tCapId = aa.cap.getCapID(record);
 
-    if (pCapList.getSuccess()){
-        pCapList = pCapList.getOutput();
-
-        for (i in pCapList){
-            var pCapId = pCapList[i]
-            var pCapModel = pCapId.getCapModel()
-            var pAltId = pCapModel.getAltID()
-            var pCapType = String(pCapModel.getCapType());
-            logDebug('Checking: ' + pAltId)
-
-            // if (appMatch('Licenses/*/*/License', pAltId)){
-            //     logDebug('Checking: ' + pAltId)
-            //     // exploreObject(pCapModel)
-
-            // }
-
-
-
-
+            if (tCapId.getSuccess()){
+                tCapId = tCapId.getOutput();
+                var tCap = aa.cap.getCap(tCapId).getOutput().getCapModel()
+                var tCapType = tCap.getCapType().toString().split('/')
+              
+                logDebug(tCapType.join('/'))
+                if (tCapType[2] == 'Food Dealer' || tCapType[2] == 'Temporary Food Dealer'){
+                    foodLicenseExists = true;
+                }
+            }
         }
+    })
 
+    if (foodLicenseExists){
+        logDebug('Food License is in TCOP')
+
+        var eParams = aa.util.newHashtable()
+        getRecordParams4Notification(eParams);
+        getDepartmentParams4Notification(eParams, 'License Management')
+
+        sendNotification('noreply@accela.com', '', '', 'LIC_NOTIFY_HD', eParams, new Array())
     }
+    
 
 
 
@@ -148,3 +155,59 @@ function exploreObject(objExplore) {
 
 
 
+
+  function getDepartmentParams4Notification(eParamsHash, deptName) {
+
+    if (deptName == null) {
+        return eParamsHash;
+    }
+    var rptInfoStdArray = getStandardChoiceArray("DEPARTMENT_INFORMATION");
+
+    var foundDept = false;
+
+    var valDesc = null;
+    var defaultDeptValDesc = null;
+    for (s in rptInfoStdArray) {
+        if (rptInfoStdArray[s]["active"] == "A" && String(rptInfoStdArray[s]["value"]).toUpperCase() == String(deptName).toUpperCase()) {
+            valDesc = rptInfoStdArray[s]["valueDesc"];
+            if (isEmptyOrNull(valDesc)) {   
+                return eParamsHash;
+            }
+            valDesc = String(valDesc).split("|");
+            foundDept = true;
+            break;
+        }//active and name match
+    }//all std-choice rows
+
+    if (!foundDept) {
+        logDebug('line 349 No department found, use default values')
+        for (s in rptInfoStdArray) {
+            if (rptInfoStdArray[s]["active"] == "A" && String(rptInfoStdArray[s]["value"]).toUpperCase() == "DEFAULT") {
+                valDesc = rptInfoStdArray[s]["valueDesc"];
+                if (isEmptyOrNull(valDesc)) {      
+                    return eParamsHash;
+                }
+                valDesc = String(valDesc).split("|");
+                foundDept = true;
+                break;
+            }//active and name match
+        }
+    }
+
+    if (!isEmptyOrNull(valDesc)) {
+        for (e in valDesc) {
+            var parameterName = "";
+            var tmpParam = valDesc[e].split(":");
+            if (tmpParam[0].indexOf("$$") < 0){
+                parameterName = "$$" + tmpParam[0].replace(/\s+/g, '') + "$$";
+            }
+            else{
+                parameterName = tmpParam[0];
+            }
+                logDebug('Param Name: ' + parameterName + ' Param Value: ' + tmpParam[1])
+            addParameter(eParamsHash, parameterName, tmpParam[1]);
+        }//for all parameters in each row
+    }//has email parameters
+
+    return eParamsHash;
+}

@@ -1,6 +1,6 @@
 var debug = ''
 var showDebug = true;
-var altId = '2024-006'
+var altId = 'BB-R24-00001'
 var capId = aa.cap.getCapID(altId); //CapIDModel
 var csm;
 var capModel;
@@ -16,6 +16,14 @@ if (capId.getSuccess()){
 /**
  * START EXPLORATION
  */
+
+var tssmResult = aa.appSpecificTableScript.getAppSpecificTableModel(capId, 'RENEWAL CHANGES');
+
+	if (!tssmResult.getSuccess()) {
+		logDebug("EMSE API Error: addASITable - error retrieving app specific table RENEWAL CHANGES" + tssmResult.getErrorMessage());
+	}
+
+
 
 exploreObject(capId)
 

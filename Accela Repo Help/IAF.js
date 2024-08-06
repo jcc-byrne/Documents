@@ -8,8 +8,14 @@
 | Notes   : For Application Submit Before see INCLUDES_ACCELA_FUNCTIONS_ASB
 |
 /------------------------------------------------------------------------------------------------------*/
-var INCLUDE_VERSION = "21.2.3"; 
- 
+
+var INCLUDE_VERSION = "23.2.1";
+
+//@ts-check
+/** 
+ * Makes workflow task wfstr active and not completed, so that users can edit wfstr
+ * @param {String} wfstr Name of task to activate.
+ */
 function activateTask(wfstr) // optional process name
 {
 	var useProcess = false;
@@ -18,315 +24,610 @@ function activateTask(wfstr) // optional process name
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
+	if (typeof capId === typeof undefined) {
+		logDebug("capId is undefined.");
+		return false;
+	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
-	if (workflowResult.getSuccess())
+	if (workflowResult.getSuccess()) {
 		var wfObj = workflowResult.getOutput();
-	else {
+	} else {
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
-	for (i in wfObj) {
+
+	for (var i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
+
 			if (useProcess) {
-				aa.workflow.adjustTask(capId, stepnumber, processID, "Y", "N", null, null)
+				aa.workflow.adjustTask(capId, stepnumber, processID, "Y", "N", null, null);
 			} else {
-				aa.workflow.adjustTask(capId, stepnumber, "Y", "N", null, null)
+				aa.workflow.adjustTask(capId, stepnumber, "Y", "N", null, null);
 			}
 			logMessage("Activating Workflow Task: " + wfstr);
 			logDebug("Activating Workflow Task: " + wfstr);
 		}
 	}
+	return true;
 }
  
- 
-function activeLicense(capid)
-{
-	if (capid == null || aa.util.instanceOfString(capid))
-		{
+//@ts-check
+/** 
+ * Activates the license when the status is "About to expire", "Expired", or "Delinquent".
+ * @param {String} capid
+* @returns 
+*/
+function activeLicense(capid) {
+	if (capid == null || aa.util.instanceOfString(capid)) {
 		return false;
 	}
 	//1. Set status to "Active", and update expired date.
 	var result = aa.expiration.activeLicensesByCapID(capid);
-	if (result.getSuccess())
-		{
+	if (result.getSuccess()) {
 		return true;
-	} else
-		{
+	} else {
 		aa.print("ERROR: Failed to activate License with CAP(" + capid + "): " + result.getErrorMessage());
 	}
 	return false;
 }
  
- 
+//@ts-check
+/**
+ * 
+ */
 function activeTasksCheck() {
+
+	if (typeof capId === typeof undefined) {
+		logDebug("CapId is undefinded.");
+		return false;
+	}
+
 	var workflowResult = aa.workflow.getTasks(capId);
-	if (workflowResult.getSuccess())
-		wfObj = workflowResult.getOutput();
-	else {
+	if (workflowResult.getSuccess()) {
+		var wfObj = workflowResult.getOutput();
+	} else {
 		logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
-	for (i in wfObj) {
-		fTask = wfObj[i];
-		if (fTask.getActiveFlag().equals("Y"))
+
+	for (var i in wfObj) {
+		var fTask = wfObj[i];
+		if (fTask.getActiveFlag().equals("Y")) {
 			return true;
+		}
 	}
 	return false;
 }
  
- 
-function addAddressCondition(addNum, cType,cStatus,cDesc,cComment,cImpact)
-//if addNum is null, condition is added to all addresses on CAP
-	{
-	if (!addNum)
-		{
-		var capAddResult = aa.address.getAddressByCapId(capId);
-		if (capAddResult.getSuccess())
-			{
-			var Adds = capAddResult.getOutput();
-			for (zz in Adds)
-				{
-				
-				if (Adds[zz].getRefAddressId())
-					{
-					var addAddCondResult = aa.addressCondition.addAddressCondition(Adds[zz].getRefAddressId(), cType, cDesc, cComment, null, null, cImpact, cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
-						if (addAddCondResult.getSuccess())
-							{
-							logDebug("Successfully added condition to reference Address " + Adds[zz].getRefAddressId() + "  (" + cImpact + ") " + cDesc);
-							}
-						else
-							{
-							logDebug( "**ERROR: adding condition to reference Address " + Adds[zz].getRefAddressId() + "  (" + cImpact + "): " + addAddCondResult.getErrorMessage());
-							}
-					}
-				}
-			}
-		}
-	else
-		{
-			var addAddCondResult = aa.addressCondition.addAddressCondition(addNum, cType, cDesc, cComment, null, null, cImpact, cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
-			
-	
-		        if (addAddCondResult.getSuccess())
-		        	{
-				logDebug("Successfully added condition to Address " + addNum + "  (" + cImpact + ") " + cDesc);
-				}
-			else
-				{
-				logDebug( "**ERROR: adding condition to Address " + addNum + "  (" + cImpact + "): " + addAddCondResult.getErrorMessage());
-				}
+//@ts-check
+/**
+* Adds a condition to the specified reference address. If a standard condition is associated with an ASI group
+*  (condition template), the method adds the condition with the template fields and tables. You can call the
+*  method to add duplicate conditions to a record.
+* Notes: If addNum is null, the function adds the condition to all reference addresses associated with the current record.
+ * @param {Number} addNum Reference address number or null.
+ * @param {String} cType Type of condition (from admin->condition->condition type).
+ * @param {String} cStatus Status (from admin->condition->condition status).
+ * @param {String} cDesc Description of the condition.
+ * @param {String} cComment Condition comment.
+ * @param {String} cImpact Must be Lock, Hold, Notice, Required, or “”.
+ * 
+ * @returns {boolean} Returns true if successful, false if not.
+ */
+
+function addAddressCondition(addNum, cType, cStatus, cDesc, cComment, cImpact) {
+	if (!addNum) {
+		if (typeof capId === typeof undefined) {
+			logDebug("ERROR : function 'addAddressCondition' requires global 'capId' be defined if parameter 'addNum' is not undefined.");
+			return false;
 		}
 	}
 
- 
- 
-function addAddressDistrict(addrNum, districtValue)
-//if addrNum is null, district is is added to all addresses on the Record
-	{
-	if (!addrNum)
-		{
-		var capAddrResult = aa.address.getAddressByCapId(capId);
-		if (capAddrResult.getSuccess())
-			{
-			var addrs = capAddrResult.getOutput();
-			for (var zz in addrs)
-				{
-				apdResult = aa.address.addAddressDistrictForDaily(capId.getID1(),capId.getID2(),capId.getID3(),addrs[zz].getAddressId(),districtValue);
-				
-				if (!apdResult.getSuccess())
-					{ logDebug("**ERROR Adding District " + districtValue + " to address #" + addrs[zz].getAddressId() + " : " + apdResult.getErrorMessage()) ; return false ; }
-				else
-					logDebug("Successfully added district " + districtValue + " to address #" + addrs[zz].getAddressId());
-				}
-			}
+	var localSysUserObj;
+	if (typeof systemUserObj === typeof undefined || !systemUserObj) {
+		var localSysUserObjResult = aa.person.getUser(aa.env.getValue("CurrentUserID"));
+		if (localSysUserObjResult.getSuccess()) {
+			localSysUserObj = localSysUserObjResult.getOutput();
+		} else {
+			logDebug("EMSE API error: " + localSysUserObjResult.getErrorMessage());
+			return false;
 		}
-	else
-		{
-		apdResult = aa.address.addAddressDistrictForDaily(capId.getID1(),capId.getID2(),capId.getID3(),addrNum,districtValue);
-		if (!apdResult.getSuccess())
-			{ logDebug("**ERROR Adding District " + districtValue + " to address #" + addrNum + " : " + apdResult.getErrorMessage()) ; return false ; }
-		else
-			logDebug("Successfully added district " + districtValue + " to address #" + addrNum);
+		if (localSysUserObj == null) {
+			logDebug("Error: Cannot get user from env variable 'CurrentUserID'. Ensure 'systemUserObj' is defined.");
+			return false;
 		}
+
+	} else {
+		localSysUserObj = systemUserObj;
 	}
- 
- 
-function addAddressStdCondition(addNum,cType,cDesc)
-	{
-	var foundCondition = false;
-	
-	cStatus = "Applied";
-	if (arguments.length > 3)
-		cStatus = arguments[3]; // use condition status in args
-		
-	if (!aa.capCondition.getStandardConditions)
-		{
-		logDebug("addAddressStdCondition function is not available in this version of Accela Automation.");
-		}
-        else
-		{
-		standardConditions = aa.capCondition.getStandardConditions(cType,cDesc).getOutput();
-		for(i = 0; i<standardConditions.length;i++)
-			if(standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) //EMSE Dom function does like search, needed for exact match
-			{
-			standardCondition = standardConditions[i]; // add the last one found
-			
-			foundCondition = true;
-		
-			if (!addNum) // add to all reference address on the current capId
-				{
-				var capAddResult = aa.address.getAddressByCapId(capId);
-				if (capAddResult.getSuccess())
-					{
-					var Adds = capAddResult.getOutput();
-					for (zz in Adds)
-						{
-						if (Adds[zz].getRefAddressId())
-							{
-							var addAddCondResult = aa.addressCondition.addAddressCondition(Adds[zz].getRefAddressId(),standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null,null, standardCondition.getImpactCode(),cStatus,sysDate, null, sysDate, null, systemUserObj, systemUserObj)
-			
-							if (addAddCondResult.getSuccess())
-									{
-									logDebug("Successfully added condition to reference Address " + Adds[zz].getRefAddressId() + " " + cDesc);
-									}
-								else
-									{
-									logDebug( "**ERROR: adding condition to reference Address " + Adds[zz].getRefAddressId() + " " + addAddCondResult.getErrorMessage());
-									}
-							}
-						}
+
+	var localSysDate = aa.date.getCurrentDate();
+
+	if (!addNum) {
+		//if addNum is null, condition is added to all addresses on CAP
+
+		var capAddResult = aa.address.getAddressByCapId(capId);
+
+		if (capAddResult.getSuccess()) {
+			var Adds = capAddResult.getOutput();
+			for (var zz in Adds) {
+
+				if (Adds[zz].getRefAddressId()) {
+					var addAddCondResult = aa.addressCondition.addAddressCondition(Adds[zz].getRefAddressId(), cType, cDesc, cComment, null, null, cImpact, cStatus, localSysDate, null, localSysDate, localSysDate, localSysUserObj, localSysUserObj);
+
+					if (addAddCondResult.getSuccess()) {
+						logDebug("Successfully added condition to reference Address " + Adds[zz].getRefAddressId() + "  (" + cImpact + ") " + cDesc);
+						return true;
+					} else {
+						logDebug("**ERROR: adding condition to reference Address " + Adds[zz].getRefAddressId() + "  (" + cImpact + "): " + addAddCondResult.getErrorMessage());
+						return false;
 					}
 				}
-			else
-				{
-				var addAddCondResult = aa.addressCondition.addAddressCondition(addNum,standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null,null, standardCondition.getImpactCode(),cStatus,sysDate, null, sysDate, null, systemUserObj, systemUserObj)
-					if (addAddCondResult.getSuccess())
-						{
+			}
+		}
+		return false;
+	} else {
+		var addAddCondResult = aa.addressCondition.addAddressCondition(addNum, cType, cDesc, cComment, null, null, cImpact, cStatus, localSysDate, null, localSysDate, localSysDate, localSysUserObj, localSysUserObj);
+		if (addAddCondResult.getSuccess()) {
+			logDebug("Successfully added condition to Address " + addNum + "  (" + cImpact + ") " + cDesc);
+			return true;
+		} else {
+			logDebug("**ERROR: adding condition to Address " + addNum + "  (" + cImpact + "): " + addAddCondResult.getErrorMessage());
+			return false;
+		}
+	}
+}
+ 
+//@ts-check
+/**
+ * addAddressDistrict adds a District value to a Record Address.
+ * If no value is supplied for addrNum parameter, an attempt will be made to add the supplied districtValue to the first Address on the Record.
+ * Global var 'capId' should be in scope and assigned a value.
+ * @param {number} addrNum 
+ * @param {string} districtValue 
+ * @returns 
+ */
+//if addrNum is null, district is is added to all addresses on the Record
+function addAddressDistrict(addrNum, districtValue) {
+
+  if (typeof capId === typeof undefined) {
+    logDebug("'addAddressDistrict' global 'capId' is undefined.");
+    return false;
+  }
+
+  if (!addrNum) {
+    var capAddrResult = aa.address.getAddressByCapId(capId);
+    if (capAddrResult.getSuccess()) {
+      var addrs = capAddrResult.getOutput();
+      for (var zz in addrs) {
+        var apdResult = aa.address.addAddressDistrictForDaily(capId.getID1(), capId.getID2(), capId.getID3(), addrs[zz].getAddressId(), districtValue);
+
+        if (!apdResult.getSuccess()) {
+          logDebug("**ERROR Adding District " + districtValue + " to address #" + addrs[zz].getAddressId() + " : " + apdResult.getErrorMessage());
+          return false;
+        } else {
+          logDebug("Successfully added district " + districtValue + " to address #" + addrs[zz].getAddressId());
+          // halt after first success
+          break;
+        }
+      }
+    }
+  } else {
+    var apdResult = aa.address.addAddressDistrictForDaily(capId.getID1(), capId.getID2(), capId.getID3(), addrNum, districtValue);
+
+    if (!apdResult.getSuccess()) {
+      logDebug("**ERROR Adding District " + districtValue + " to address #" + addrNum + " : " + apdResult.getErrorMessage());
+      return false;
+    } else {
+      logDebug("Successfully added district " + districtValue + " to address #" + addrNum);
+    }
+  }
+  return true;
+} 
+//@ts-check
+/**
+ * Adds a standard condition to the specified reference address. If a standard condition is associated with an
+ * ASI group (condition template), the method adds the condition with the template fields and tables. You can
+ * call the method to add duplicate conditions to a record
+ * @param {Number} addNum Reference address number or null.
+ * @param {String} cType Type of the standard condition.
+ * @param {String} cDesc Description of the standard condition.
+ * @returns {boolean} Returns true if successful and no errors, false if errors
+ */
+
+function addAddressStdCondition(addNum, cType, cDesc) {
+	var foundCondition = false;
+
+	var cStatus = "Applied";
+	if (arguments.length > 3) {
+		cStatus = arguments[3]; // use condition status in args
+	}
+
+	var localSysUserObj;
+	if (typeof systemUserObj === typeof undefined || !systemUserObj) {
+		var localSysUserObjResult = aa.person.getUser(aa.env.getValue("CurrentUserID"));
+		if (localSysUserObjResult.getSuccess()) {
+			localSysUserObj = localSysUserObjResult.getOutput();
+		} else {
+			logDebug("EMSE API error: " + localSysUserObjResult.getErrorMessage());
+			return false;
+		}
+		if (localSysUserObj == null) {
+			logDebug("Error: Cannot get user from env variable 'CurrentUserID'. Ensure 'systemUserObj' is defined.");
+			return false;
+		}
+	} else {
+		localSysUserObj = systemUserObj;
+	}
+
+	var localSysDate = aa.date.getCurrentDate();
+
+	if (!aa.capCondition.getStandardConditions) {
+		logDebug("addAddressStdCondition function is not available in this version of Accela Automation.");
+		return false;
+	} else {
+
+		if (!cType || !cDesc) {
+			logDebug("cType or Cdesc are not defined");
+			return false;
+		}
+		var standardConditions = aa.capCondition.getStandardConditions(cType, cDesc).getOutput();
+		for (var i = 0; i < standardConditions.length; i++) {
+			if (standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) {
+				//EMSE Dom function does like search, needed for exact match
+
+				var standardCondition = standardConditions[i]; // add the last one found
+
+				foundCondition = true;
+				if (!addNum) {
+					// add to all reference address on the current capId
+					if (typeof capId === typeof undefined) {
+						logDebug("capId is undefined.");
+						return false;
+					}
+
+					var capAddResult = aa.address.getAddressByCapId(capId);
+					if (capAddResult.getSuccess()) {
+						var Adds = capAddResult.getOutput();
+						var success = true;
+						for (var zz in Adds) {
+							if (Adds[zz].getRefAddressId()) {
+								var addAddCondResult = aa.addressCondition.addAddressCondition(Adds[zz].getRefAddressId(), standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, localSysDate, null, localSysDate, null, localSysUserObj, localSysUserObj)
+								if (addAddCondResult.getSuccess()) {
+									logDebug("Successfully added condition to reference Address " + Adds[zz].getRefAddressId() + " " + cDesc);
+								} else {
+									logDebug("**ERROR: adding condition to reference Address " + Adds[zz].getRefAddressId() + " " + addAddCondResult.getErrorMessage());
+									success = false;
+								}
+							}
+						}
+						return success;
+					}
+					return false;
+				} else {
+					addNum = parseInt("" + addNum);
+					if (isNaN(addNum)) {
+						logDebug("**ERROR: Calling 'addAddressStdCondition' - value for parameter 'addNum' [" + addNum + "] is not a number. ");
+						return false;
+					}
+
+					var addAddCondResult = aa.addressCondition.addAddressCondition(addNum, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, localSysDate, null, localSysDate, null, localSysUserObj, localSysUserObj)
+					if (addAddCondResult.getSuccess()) {
 						logDebug("Successfully added condition to Address " + addNum + " " + cDesc);
-						}
-					else
-						{
-						logDebug( "**ERROR: adding condition to Address " + addNum + " " + addAddCondResult.getErrorMessage());
-						}
+					} else {
+						logDebug("**ERROR: adding condition to Address " + addNum + " " + addAddCondResult.getErrorMessage());
+						return false;
+					}
 				}
 			}
 		}
-		
-	if (!foundCondition) logDebug( "**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
 	}
- 
- 
- function addAdHocTask(adHocProcess, adHocTask, adHocNote)
-{
-//adHocProcess must be same as one defined in R1SERVER_CONSTANT
-//adHocTask must be same as Task Name defined in AdHoc Process
-//adHocNote can be variable
-//Optional 4 parameters = Assigned to User ID must match an AA user
-//Optional 5 parameters = CapID
-	var thisCap = capId;
-	var thisUser = currentUserID;
-	if(arguments.length > 3)
-		thisUser = arguments[3]
-	if(arguments.length > 4)
-		thisCap = arguments[4];
-	var userObj = aa.person.getUser(thisUser);
-	if (!userObj.getSuccess())
-	{
-		logDebug("Could not find user to assign to");
+
+	if (!foundCondition) {
+		logDebug("**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
 		return false;
 	}
-	var taskObj = aa.workflow.getTasks(thisCap).getOutput()[0].getTaskItem()
-	taskObj.setProcessCode(adHocProcess);
-	taskObj.setTaskDescription(adHocTask);
-	taskObj.setDispositionNote(adHocNote);
-	taskObj.setProcessID(0);
-	taskObj.setAssignmentDate(aa.util.now());
-	taskObj.setDueDate(aa.util.now());
-	taskObj.setAssignedUser(userObj.getOutput());
-	wf = aa.proxyInvoker.newInstance("com.accela.aa.workflow.workflow.WorkflowBusiness").getOutput();
-	wf.createAdHocTaskItem(taskObj);
 	return true;
 }
  
- 
-function addAllFees(fsched,fperiod,fqty,finvoice) // Adds all fees for a given fee schedule
-	{
-	var arrFees = aa.finance.getFeeItemList(null,fsched,null).getOutput();
-	for (xx in arrFees)
-		{
-		var feeCod = arrFees[xx].getFeeCod();
-		var assessFeeResult = aa.finance.createFeeItem(capId,fsched,feeCod,fperiod,fqty);
-		if (assessFeeResult.getSuccess())
-			{
-			var feeSeq = assessFeeResult.getOutput();
-			logMessage("Added Fee " + feeCod + ", Qty " + fqty);
-			logDebug("The assessed fee Sequence Number " + feeSeq);
-			if (finvoice == "Y")
-			{
-				feeSeqList.push(feeSeq);
-				paymentPeriodList.push(fperiod);
-				}
-			}
-		else
-			{
-			logDebug( "**ERROR: assessing fee (" + feeCod + "): " + assessFeeResult.getErrorMessage());
-			}
-		} // for xx
-	} // function
- 
- 
-function addAppCondition(cType, cStatus, cDesc, cComment, cImpact, conditionOfApproval) {
-	var addCapCondResult;
-	if (arguments.length > 5) {
-		addCapCondResult = aa.capCondition.addCapCondition(capId, cType, cDesc, cComment, sysDate, null, sysDate, null, null, cImpact, systemUserObj, systemUserObj, cStatus, currentUserID, "A", conditionOfApproval);
+//@ts-check
+/**
+ * Adds an Adhoc WF Task to the Record's Workflow
+ * @param {string} adHocProcess must be same as one defined in R1SERVER_CONSTANT
+ * @param {string} adHocTask must be same as Task Name defined in AdHoc Process
+ * @param {string} adHocNote can be variable
+ * @param {string} [thisUser] (unnamed/optional) Assign-To User ID
+ * @param {string} [thisCap] (unnamed/optional) Cap ID to use.
+ * @returns {boolean} Returns true if successful, false if not.
+ */
+function addAdHocTask(adHocProcess, adHocTask, adHocNote) {
+
+
+  var thisCap;
+	if (arguments.length > 4) {
+		thisCap = arguments[4];
 	} else {
-		addCapCondResult = aa.capCondition.addCapCondition(capId, cType, cDesc, cComment, sysDate, null, sysDate, null, null, cImpact, systemUserObj, systemUserObj, cStatus, currentUserID, "A");
+		if (typeof capId === typeof undefined) {
+			logDebug("'addAdHocTask' requires either global 'capId' be defined or itemCap parameter be supplied.");
+			return false;
+		} else {
+			thisCap = capId;
+		}
 	}
-	if (addCapCondResult.getSuccess()) {
-		logDebug("Successfully added condition (" + cImpact + ") " + cDesc);
-		logDebug("Successfully added condition (" + cImpact + ") " + cDesc);
-	} else {
-		logDebug("**ERROR: adding condition (" + cImpact + "): " + addCapCondResult.getErrorMessage());
-	}
+  if(typeof thisCap == "undefined" || thisCap == null){
+    logDebug("'addAdHocTask' requires either global 'capId' be defined or itemCap parameter be supplied.");
+    return false;
+  }
+
+  var thisUser = "";
+  if (typeof currentUserID !== typeof undefined) {
+    thisUser = currentUserID;
+  } else {
+    thisUser = String(aa.env.getValue("CurrentUserID"));
+  }
+  if (arguments.length > 3) {
+    thisUser = arguments[3];
+  }
+  if (!thisUser || thisUser == "") {
+    logDebug("Error: Unable to get the current user ID from the environment.");
+    return false;
+  }
+
+  if (arguments.length > 4) {
+    thisCap = arguments[4];
+  }
+
+  var userObjResult = aa.person.getUser(thisUser);
+  if (!userObjResult.getSuccess()) {
+    logDebug("Error: Could not find user to assign to.");
+    return false;
+  }
+  var userObj = userObjResult.getOutput();
+
+  var tasksArrResult = aa.workflow.getTasks(thisCap);
+  if (!tasksArrResult.getSuccess()) {
+    logDebug("EMSE API Error: " + tasksArrResult.getErrorMessage());
+    return false;
+  }
+  var tasksArr = tasksArrResult.getOutput();
+  var taskObj = tasksArr[0].getTaskItem();
+
+  taskObj.setProcessCode(adHocProcess);
+  taskObj.setTaskDescription(adHocTask);
+  taskObj.setDispositionNote(adHocNote);
+  taskObj.setProcessID(0);
+  taskObj.setAssignmentDate(aa.util.now());
+  taskObj.setDueDate(aa.util.now());
+  taskObj.setAssignedUser(userObj);
+
+  var wfResult = aa.proxyInvoker.newInstance("com.accela.aa.workflow.workflow.WorkflowBusiness");
+  if (!wfResult.getSuccess()) {
+    logDebug("EMSE API Error: " + wfResult.getErrorMessage());
+    return false;
+  }
+  var wf = wfResult.getOutput();
+
+  try {
+    wf.createAdHocTaskItem(taskObj);
+  } catch (err) {
+    logDebug("Error: Unable to create Ad Hoc task. Message: " + err.message);
+    return false;
+  }
+  return true;
 }
  
+//@ts-check
+/**
+ * Adds all fees within a fee schedule to the record. Optionally flags the fees for automatic invoicing by the
+   script.
+ * @param {string} fsched Fee schedule to be added.
+ * @param {string} fperiod Fee period to be used.
+ * @param {number} fqty Quantity to be entered.
+ * @param {string} finvoice Flag for invoicing ("Y" or "N").
+ * @returns {boolean} Returns true if successful, false if not.
+ */
+function addAllFees(fsched, fperiod, fqty, finvoice) {
+
+  if (typeof capId === typeof undefined) {
+    logDebug("Error: capId is undefined.");
+    return false;
+  }
+
+  if (typeof fsched === typeof undefined || fsched == null || fsched == "") {
+    logDebug("Error: fsched parameter is undefined, null, or an empty string.");
+    return false;
+  }
+
+  if (typeof fperiod === typeof undefined || fperiod == null || fperiod == "") {
+    logDebug("Error: fperiod parameter is undefined, null, or an empty string.");
+    return false;
+  }
+
+  if (typeof fqty === typeof undefined || fqty == null || isNaN(fqty)) {
+    logDebug("Error: fqty parameter is undefined, null, or not a number.");
+    return false;
+  }
+
+  if (finvoice == "Y") {
+    if (typeof feeSeqList === typeof undefined) {
+      feeSeqList = new Array();
+    }
+
+    if (typeof paymentPeriodList === typeof undefined) {
+      paymentPeriodList = new Array();
+    }
+  }
+
+
+  var arrFeesResult = aa.finance.getFeeItemList(null, fsched, null);
+  if (!arrFeesResult.getSuccess()) {
+    logDebug("EMSE API Error: " + arrFeesResult.getOutput());
+    return false;
+  }
+  var arrFees = arrFeesResult.getOutput();
+
+  for (var xx in arrFees) {
+    var feeCod = arrFees[xx].getFeeCod();
+    var assessFeeResult = aa.finance.createFeeItem(capId, fsched, feeCod, fperiod, fqty);
+    if (assessFeeResult.getSuccess()) {
+      var feeSeq = assessFeeResult.getOutput();
+      logMessage("Added Fee " + feeCod + ", Qty " + fqty);
+      logDebug("The assessed fee Sequence Number " + feeSeq);
+      if (finvoice == "Y") {
+        feeSeqList.push(feeSeq);
+        paymentPeriodList.push(fperiod);
+      }
+    }
+    else {
+      logDebug("**ERROR: assessing fee (" + feeCod + "): " + assessFeeResult.getErrorMessage());
+      return false
+    }
+  } // for xx
+  return true;
+} // function
  
-function addASITable(tableName, tableValueArray) // optional capId
-{
-	//  tableName is the name of the ASI table
-	//  tableValueArray is an array of associative array values.  All elements MUST be either a string or asiTableVal object
-	var itemCap = capId
-		if (arguments.length > 2)
-			itemCap = arguments[2]; // use cap ID specified in args
-		var tssmResult = aa.appSpecificTableScript.getAppSpecificTableModel(itemCap, tableName)
-		if (!tssmResult.getSuccess()) {
-			logDebug("**WARNING: error retrieving app specific table " + tableName + " " + tssmResult.getErrorMessage());
-			return false
+//@ts-check
+/**
+ * Adds the condition to the record. If a standard condition is associated with 
+ * an ASI group (condition template), the method adds the condition with the 
+ * template fields and tables. You can call the method to add duplicate 
+ * conditions to a record.
+ * 
+ * @param {string} cType Type of condition (from admin->condition->condition type).
+ * @param {string} cStatus Status (from admin->condition->condition status).
+ * @param {string} cDesc Description of the condition.
+ * @param {string} cComment Condition comment.
+ * @param {string} cImpact Must be Lock, Hold, Notice, Required, or "".
+ * @param {string} conditionOfApproval (Optional)
+ * @returns {boolean} Returns true if successful, false if not.
+ */
+function addAppCondition(cType, cStatus, cDesc, cComment, cImpact, conditionOfApproval) {
+
+  var localSysDate;
+  var addCapCondResult;
+  var localSysUserObj;
+  var localCurrentUserID = "";
+
+  if (typeof capId === typeof undefined) {
+    logDebug("capId is undefined.");
+    return false;
+  }
+
+  if (typeof currentUserID === typeof undefined) {
+    localCurrentUserID = String(aa.env.getValue("CurrentUserID"));
+  } else {
+    localCurrentUserID = currentUserID;
+  }
+
+  if (typeof systemUserObj === typeof undefined || !systemUserObj) {
+    var localSysUserObjResult = aa.person.getUser(localCurrentUserID);
+    if (localSysUserObjResult.getSuccess()) {
+      localSysUserObj = localSysUserObjResult.getOutput();
+    } else {
+      logDebug("EMSE API error: " + localSysUserObjResult.getErrorMessage());
+      return false;
+    }
+    if (localSysUserObj == null) {
+      logDebug("Error: Cannot get user from env variable 'CurrentUserID'. Ensure 'systemUserObj' is defined.");
+      return false;
+    }
+  } else {
+    localSysUserObj = systemUserObj;
+  }
+
+  if (typeof sysDate === typeof undefined) {
+    localSysDate = aa.date.getCurrentDate();
+  } else {
+    localSysDate = sysDate;
+  }
+
+  if (arguments.length > 5) {
+    addCapCondResult = aa.capCondition.addCapCondition(capId, cType, cDesc, cComment, localSysDate, null, localSysDate, null, null, cImpact, localSysUserObj, localSysUserObj, cStatus, localCurrentUserID, "A", conditionOfApproval);
+  } else {
+    addCapCondResult = aa.capCondition.addCapCondition(capId, cType, cDesc, cComment, localSysDate, null, localSysDate, null, null, cImpact, localSysUserObj, localSysUserObj, cStatus, localCurrentUserID, "A");
+  }
+
+  if (addCapCondResult.getSuccess()) {
+    logDebug("Successfully added condition (" + cImpact + ") " + cDesc);
+  } else {
+    logDebug("**ERROR: adding condition (" + cImpact + "): " + addCapCondResult.getErrorMessage());
+    return false;
+  }
+  return true;
+}
+ 
+//@ts-check
+/**
+ * Adds ASIT rows to Record. The Table Name passed should be a sub-group on 
+ * the group (Custom List Group Code) associated with the Record Type's ASI.
+ * @param {string} tableName ASI Table Name 
+ * @param {object[]} tableValueArray Array of associative array values. All elements MUST be either a string or asiTableVal object
+ * (Optional) {object} itemCap Cap ID object is 3rd parm. If not supplied then global 'capId' is used  
+ * @returns {boolean} FALSE if failure, TRUE if update performed without issue
+ */
+function addASITable(tableName, tableValueArray) {
+	var localCurrentUserID = "";
+
+	var itemCap;
+	if (arguments.length > 2) {
+		itemCap = arguments[2]; // use cap ID specified in args
+	} else {
+		if (typeof capId != "undefined") {
+			var itemCap = capId;
 		}
+	}
+
+	if (!itemCap ||  typeof itemCap.getCustomID == "undefined") {
+		logDebug("Error: addASITable - global 'capId' is undefined/null and no usable value was passed for 'itemCap'");
+		return false;
+	}
+
+	if (typeof currentUserID === typeof undefined) {
+		localCurrentUserID = String(aa.env.getValue("CurrentUserID"));
+	} else {
+		localCurrentUserID = currentUserID;
+	}
+	if (localCurrentUserID == "") {
+		logDebug("Error: currentUserID variable isn't set at CurrentUserID environment variable isn't available.");
+		return false;
+	}
+
+
+	var tssmResult = aa.appSpecificTableScript.getAppSpecificTableModel(itemCap, tableName);
+
+	if (!tssmResult.getSuccess()) {
+		logDebug("EMSE API Error: addASITable - error retrieving app specific table " + tableName + " " + tssmResult.getErrorMessage());
+		return false;
+	}
+
 	var tssm = tssmResult.getOutput();
 	var tsm = tssm.getAppSpecificTableModel();
 	var fld = tsm.getTableField();
 	var fld_readonly = tsm.getReadonlyField(); // get Readonly field
-	for (thisrow in tableValueArray) {
-		var col = tsm.getColumns()
-			var coli = col.iterator();
+
+	for (var thisrow in tableValueArray) {
+		var col = tsm.getColumns();
+		var coli = col.iterator();
 		while (coli.hasNext()) {
 			var colname = coli.next();
+
 			if (!tableValueArray[thisrow][colname.getColumnName()]) {
 				logDebug("addToASITable: null or undefined value supplied for column " + colname.getColumnName() + ", setting to empty string");
 				tableValueArray[thisrow][colname.getColumnName()] = "";
 			}
-			
-			if (typeof(tableValueArray[thisrow][colname.getColumnName()].fieldValue) != "undefined") // we are passed an asiTablVal Obj
-			{
+
+			if (typeof (tableValueArray[thisrow][colname.getColumnName()].fieldValue) != "undefined") {
+				// we are passed an asiTablVal Obj
 				fld.add(tableValueArray[thisrow][colname.getColumnName()].fieldValue);
 				fld_readonly.add(tableValueArray[thisrow][colname.getColumnName()].readOnly);
 				//fld_readonly.add(null);
-			} else // we are passed a string
-			{
+			} else {
+				// we are passed a string
 				fld.add(tableValueArray[thisrow][colname.getColumnName()]);
 				fld_readonly.add(null);
 			}
@@ -334,26 +635,34 @@ function addASITable(tableName, tableValueArray) // optional capId
 		tsm.setTableField(fld);
 		tsm.setReadonlyField(fld_readonly);
 	}
-	var addResult = aa.appSpecificTableScript.editAppSpecificTableInfos(tsm, itemCap, currentUserID);
+
+	var addResult = aa.appSpecificTableScript.editAppSpecificTableInfos(tsm, itemCap, localCurrentUserID);
 	if (!addResult.getSuccess()) {
-		logDebug("**WARNING: error adding record to ASI Table:  " + tableName + " " + addResult.getErrorMessage());
-		return false
-	} else
+		logDebug("EMSE API Error adding record to ASI Table:  " + tableName + " " + addResult.getErrorMessage());
+		return false;
+	} else {
 		logDebug("Successfully added record to ASI Table: " + tableName);
-}
- 
- 
-function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableValueArray) // optional capId
-{
-    //  tableName is the name of the ASI table
-    //  tableValueArray is an array of associative array values.  All elements MUST be either a string or asiTableVal object
-    //
-    var itemCap = capId;
-    if (arguments.length > 3)
-        itemCap = arguments[3]; // use cap ID specified in args
+	}
+	return true;
+} 
+//@ts-check
+/**
+ * Used by page flow scripts to add rows to an ASIT table. 
+ * You can use this function to dynamically populate an ASIT based on data from earlier pages.
+ * The Table Name passed should be a sub-group on 
+ * the group (Custom List Group Code) associated with the Record Type's ASI.
+ * 
+ * @param {object} destinationTableGroupModel App Specific Table Group Model (com.accela.aa.aamain.appspectable.AppSpecificTableGroupModel)
+ * @param {string} tableName ASI Table Name
+ * @param {[object]} tableValueArray Array of associative array values. All elements MUST be either a string or asiTableVal object
+ * 
+ * @returns {object} boolean (false) if no match on 'tableName' || com.accela.aa.aamain.appspectable.AppSpecificTableGroupModel which was passed as parm 'destinationTableGroupModel'
+ */
+function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableValueArray) {
     var ta = destinationTableGroupModel.getTablesMap().values();
     var tai = ta.iterator();
     var tsm;
+
     var found = false;
     while (tai.hasNext()) {
         tsm = tai.next(); // com.accela.aa.aamain.appspectable.AppSpecificTableModel
@@ -362,14 +671,17 @@ function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableVal
             break;
         }
     }
+
     if (!found) {
-        logDebug("cannot update asit for ACA, no matching table name");
+        logDebug("Error: cannot update asit for ACA, no matching table name.");
         return false;
     }
+
     var i = -1; // row index counter
     if (tsm.getTableFields() != null) {
         i = 0 - tsm.getTableFields().size();
     }
+
     for (var thisrow in tableValueArray) {
         var fld = aa.util.newArrayList(); // had to do this since it was coming up null.
         var fld_readonly = aa.util.newArrayList(); // had to do this since it was coming up null.
@@ -379,12 +691,14 @@ function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableVal
             var args;
             var fldToAdd;
             var colname = coli.next();
+
             if (!tableValueArray[thisrow][colname.getColumnName()]) {
                 logDebug("addToASITable: null or undefined value supplied for column " + colname.getColumnName() + ", setting to empty string");
                 tableValueArray[thisrow][colname.getColumnName()] = "";
             }
-            if (typeof (tableValueArray[thisrow][colname.getColumnName()].fieldValue) != "undefined") // we are passed an asiTablVal Obj
-            {
+
+            if (typeof (tableValueArray[thisrow][colname.getColumnName()].fieldValue) != "undefined") {
+                // we are passed an asiTablVal Obj
                 args = new Array(tableValueArray[thisrow][colname.getColumnName()].fieldValue ? tableValueArray[thisrow][colname.getColumnName()].fieldValue : "", colname);
                 fldToAdd = aa.proxyInvoker.newInstance("com.accela.aa.aamain.appspectable.AppSpecificTableField", args).getOutput();
                 fldToAdd.setRowIndex(i);
@@ -393,8 +707,9 @@ function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableVal
                 fldToAdd.setReadOnly(tableValueArray[thisrow][colname.getColumnName()].readOnly.equals("Y"));
                 fld.add(fldToAdd);
                 fld_readonly.add(tableValueArray[thisrow][colname.getColumnName()].readOnly);
-            } else // we are passed a string
-            {
+
+            } else {
+                // we are passed a string
                 args = new Array(tableValueArray[thisrow][colname.getColumnName()] ? tableValueArray[thisrow][colname.getColumnName()] : "", colname);
                 fldToAdd = aa.proxyInvoker.newInstance("com.accela.aa.aamain.appspectable.AppSpecificTableField", args).getOutput();
                 fldToAdd.setRowIndex(i);
@@ -405,179 +720,324 @@ function addASITable4ACAPageFlow(destinationTableGroupModel, tableName, tableVal
                 fld_readonly.add("N");
             }
         }
+
         i--;
+
         if (tsm.getTableFields() == null) {
             tsm.setTableFields(fld);
         } else {
             tsm.getTableFields().addAll(fld);
         }
+
         if (tsm.getReadonlyField() == null) {
             tsm.setReadonlyField(fld_readonly); // set readonly field
         } else {
             tsm.getReadonlyField().addAll(fld_readonly);
         }
     }
+
     tssm = tsm;
     return destinationTableGroupModel;
 }
  
- 
-function addContactStdCondition(contSeqNum,cType,cDesc)
-	{
+// @ts-check
+/**
+ * A Standard Condition will be applied to Reference Contacts which are associted to the Record.
+ * When a value is supplied to 'contSeqNum' parameter then the Condition will be applied to that Ref Contact.
+ * Otherwise, an attempt will be made to apply the Condition to all Ref Contacts assocaited to the Record.
+ * An un-named 4th parameter {string} may be passed for the Condition Status. If not present, the Status will be
+ * set to "Applied".
+ * @param {string} contSeqNum This should be the Reference Contact Number on the Cap Contact MODEL
+ * @param {string} cType Standard Condition Type
+ * @param {string} cDesc Standard Condition Description
+ * (Optional) cStatus Standard Condition Status
+ */
+function addContactStdCondition(contSeqNum, cType, cDesc) {
+
+	if((typeof contSeqNum == "undefined" || contSeqNum == null || contSeqNum == "") && (typeof capId == "undefined" || capId == null)){
+		// If parameter 'contSeqNum' is not supplied then the global 'capId' will be used.
+		// Therefore, if 'contSeqNum' and 'capId' are not present no processing will occur
+		logDebug("Error : addContactStdCondition - both 'contSeqNum' and 'capId' are not defined. Processing halted");
+		return;
+	}
+	if(typeof systemUserObj == "undefined" || systemUserObj == null){
+		logDebug("Error : addContactStdCondition - Required global 'systemUserObj' is not defined. Processing halted");
+		return;
+	}
+	if(typeof currentUserID == "undefined" || currentUserID == null){
+		logDebug("Error : addContactStdCondition - Required global 'currentUserID' is not defined. Processing halted");
+		return;
+	}
+
 	var foundCondition = false;
 	var javascriptDate = new Date(aa.util.now())
 	var javautilDate = aa.date.transToJavaUtilDate(javascriptDate.getTime());
-	
-	cStatus = "Applied";
-	if (arguments.length > 3)
+
+	var cStatus = "Applied";
+	if (arguments.length > 3) {
 		cStatus = arguments[3]; // use condition status in args
-		
-	if (!aa.capCondition.getStandardConditions)
-		{
-		logDebug("addAddressStdCondition function is not available in this version of Accela Automation.");
-		}
-        else
-		{
-		standardConditions = aa.capCondition.getStandardConditions(cType,cDesc).getOutput();
-		for(i = 0; i<standardConditions.length;i++)
-			if(standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) //EMSE Dom function does like search, needed for exact match
-			{
-			standardCondition = standardConditions[i]; // add the last one found
-			
-			foundCondition = true;
-		
-			if (!contSeqNum) // add to all reference address on the current capId
-				{
-				var capContactResult = aa.people.getCapContactByCapID(capId);
-				if (capContactResult.getSuccess())
-					{
-					var Contacts = capContactResult.getOutput();
-					for (var contactIdx in Contacts)
-						{
-						var contactNbr = Contacts[contactIdx].getCapContactModel().getPeople().getRefContactNumber();
-						if (contactNbr)
-							{
-							var newCondition = aa.commonCondition.getNewCommonConditionModel().getOutput();
-							newCondition.setServiceProviderCode(aa.getServiceProviderCode());
-							newCondition.setEntityType("CONTACT");
-							newCondition.setEntityID(contactNbr);
-							newCondition.setConditionDescription(standardCondition.getConditionDesc());
-							newCondition.setConditionGroup(standardCondition.getConditionGroup());
-							newCondition.setConditionType(standardCondition.getConditionType());
-							newCondition.setConditionComment(standardCondition.getConditionComment());
-							newCondition.setImpactCode(standardCondition.getImpactCode());
-							newCondition.setConditionStatus(cStatus)
-							newCondition.setAuditStatus("A");
-							newCondition.setIssuedByUser(systemUserObj);
-							newCondition.setIssuedDate(javautilDate);
-							newCondition.setEffectDate(javautilDate);
-							newCondition.setAuditID(currentUserID);
-							var addContactConditionResult = aa.commonCondition.addCommonCondition(newCondition);
-							
-							if (addContactConditionResult.getSuccess())
-								{
-								logDebug("Successfully added reference contact (" + contactNbr + ") condition: " + cDesc);
-								}
-							else
-								{
-								logDebug( "**ERROR: adding reference contact (" + contactNbr + ") condition: " + addContactConditionResult.getErrorMessage());
-								}
-							}
-						}
-					}
-				}
-			else
-				{
-				var newCondition = aa.commonCondition.getNewCommonConditionModel().getOutput();
-				newCondition.setServiceProviderCode(aa.getServiceProviderCode());
-				newCondition.setEntityType("CONTACT");
-				newCondition.setEntityID(contSeqNum);
-				newCondition.setConditionDescription(standardCondition.getConditionDesc());
-				newCondition.setConditionGroup(standardCondition.getConditionGroup());
-				newCondition.setConditionType(standardCondition.getConditionType());
-				newCondition.setConditionComment(standardCondition.getConditionComment());
-				newCondition.setImpactCode(standardCondition.getImpactCode());
-				newCondition.setConditionStatus(cStatus)
-				newCondition.setAuditStatus("A");
-				
-				newCondition.setIssuedByUser(systemUserObj);
-				newCondition.setIssuedDate(javautilDate);
-				newCondition.setEffectDate(javautilDate);
-				
-				newCondition.setAuditID(currentUserID);
-				var addContactConditionResult = aa.commonCondition.addCommonCondition(newCondition);
-				if (addContactConditionResult.getSuccess())
-					{
-					logDebug("Successfully added reference contact (" + contSeqNum + ") condition: " + cDesc);
-					}
-				else
-					{
-					logDebug( "**ERROR: adding reference contact (" + contSeqNum + ") condition: " + addContactConditionResult.getErrorMessage());
-					}
-				}
+	}
+
+	if (!aa.capCondition.getStandardConditions) {
+		logDebug("addContactStdCondition function is not available in this version of Accela Automation.");
+	} else {
+        var standardConditions = aa.capCondition.getStandardConditions(cType, cDesc);
+        if(standardConditions.getSuccess()){
+            standardConditions = standardConditions.getOutput();
+        } else {
+            logDebug("addContactStdCondition - issue attempting to fetch Standard Condition " + cType + "/" + cDesc + " " + standardConditions.getErrorMessage());
+        }
+        var standardCondition;
+		for (var i = 0; i < standardConditions.length; i++) {
+			if (standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase()
+				&& standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) {
+				//EMSE Dom function does like search, needed for exact match
+				standardCondition = standardConditions[i]; // add the last one found
+				foundCondition = true;
 			}
-		}
-	if (!foundCondition) logDebug( "**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
-	}
- 
- 
-function addCustomFee(feeSched, feeCode, feeDescr, feeAm, feeAcc, feePeriod) {
-    var feeCap = capId;
-    if(feePeriod == null){
-    	feePeriod="FINAL"
+        }
+        if (foundCondition) {
+            if (!contSeqNum || contSeqNum == "") {
+                    // add to all REFERENCE contact on the current capId 
+                var capContactResult = aa.people.getCapContactByCapID(capId);
+                if (capContactResult.getSuccess()) {
+                    var Contacts = capContactResult.getOutput();
+                    for (var contactIdx in Contacts) {
+                        var contactNbr
+                        try{
+                            // initial code preserved below. Though, it appears 'getRefContactNumber' is on the model.
+                            contactNbr = Contacts[contactIdx].getCapContactModel().getPeople().getRefContactNumber();
+                        } catch(err) {
+                            logDebug("addContactStdCondition - issue attempting Contacts[contactIdx].getCapContactModel().getPeople().getRefContactNumber(). Continue");
+                            try{
+                                contactNbr = Contacts[contactIdx].getCapContactModel().getRefContactNumber();
+                            } catch(err2) {
+                                logDebug("addContactStdCondition - issue attempting Contacts[contactIdx].getCapContactModel().getRefContactNumber(). Continue ");
+                            }
+                        }
+                        if (contactNbr) {
+                            // TODO - remove redundancy in set-up and call to create
+                            var newCondition = aa.commonCondition.getNewCommonConditionModel().getOutput();
+                            newCondition.setServiceProviderCode(aa.getServiceProviderCode());
+                            newCondition.setEntityType("CONTACT");
+                            newCondition.setEntityID(contactNbr);
+                            newCondition.setConditionDescription(standardCondition.getConditionDesc());
+                            newCondition.setConditionGroup(standardCondition.getConditionGroup());
+                            newCondition.setConditionType(standardCondition.getConditionType());
+                            newCondition.setConditionComment(standardCondition.getConditionComment());
+                            newCondition.setImpactCode(standardCondition.getImpactCode());
+                            newCondition.setConditionStatus(cStatus)
+                            newCondition.setAuditStatus("A");
+                            newCondition.setIssuedByUser(systemUserObj);
+                            newCondition.setIssuedDate(javautilDate);
+                            newCondition.setEffectDate(javautilDate);
+                            newCondition.setAuditID(currentUserID);
+                            var addContactConditionResult = aa.commonCondition.addCommonCondition(newCondition);
+                            
+                            if (addContactConditionResult.getSuccess()) {
+                                logDebug("Successfully added reference contact (" + contactNbr + ") condition: " + cDesc);
+                            } else {
+                                logDebug("**ERROR: adding reference contact (" + contactNbr + ") condition: " + addContactConditionResult.getErrorMessage());
+                            }
+                        }
+                    }
+                } else {
+                    logDebug("addContactStdCondition - issue attempting to get Record Contacts");
+                }
+            } else {
+                // TODO - remove redundancy in set-up and call to create
+                // TODO - the call is happy with ANY value for 'contSeqNum' so we may want to check to see
+                //         if it is a valid id for a ref contact
+                var newCondition = aa.commonCondition.getNewCommonConditionModel().getOutput();
+                newCondition.setServiceProviderCode(aa.getServiceProviderCode());
+                newCondition.setEntityType("CONTACT");
+                newCondition.setEntityID(contSeqNum);
+                newCondition.setConditionDescription(standardCondition.getConditionDesc());
+                newCondition.setConditionGroup(standardCondition.getConditionGroup());
+                newCondition.setConditionType(standardCondition.getConditionType());
+                newCondition.setConditionComment(standardCondition.getConditionComment());
+                newCondition.setImpactCode(standardCondition.getImpactCode());
+                newCondition.setConditionStatus(cStatus)
+                newCondition.setAuditStatus("A");
+                newCondition.setIssuedByUser(systemUserObj);
+                newCondition.setIssuedDate(javautilDate);
+                newCondition.setEffectDate(javautilDate);
+                newCondition.setAuditID(currentUserID);
+                var addContactConditionResult = aa.commonCondition.addCommonCondition(newCondition);
+                if (addContactConditionResult.getSuccess()) {
+                    logDebug("Successfully added reference contact (" + contSeqNum + ") condition: " + cDesc);
+                } else {
+                    logDebug("**ERROR: adding reference contact (" + contSeqNum + ") condition: " + addContactConditionResult.getErrorMessage());
+                }
+            }
+        } else {
+            logDebug("**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
+        }
     }
-    var newFeeResult = aa.finance.createFeeItem(feeCap, feeSched, feeCode, feePeriod, feeAm);
-	if (newFeeResult.getSuccess()) {
-	    var feeSeq = newFeeResult.getOutput();
-	    var newFee = aa.finance.getFeeItemByPK(feeCap, feeSeq).getOutput().getF4FeeItem();
-	         newFee.setFeeDescription(feeDescr);
-	    if (feeAcc) newFee.setAccCodeL1(feeAcc);
-	
-	    var feeObj = aa.finance.editFeeItem(newFee);
-	    if(feeObj.getSuccess()){
-	    	logDebug("Added Custom Fee " + feeDescr);
-	    }
-	    else{
-	    	logDebug("Error Adding Fee " + feeObj.getErrorMessage())
-	    }
-	}
-	else{
-		logDebug("Error Adding Fee " + newFeeResult.getErrorMessage());
-	}
 }
  
+//@ts-check
+/**
+ * Adds a custom fee feecode to the record, from the fee schedule (feesched) 
+ * with fee period (feeperiod).
+ * 
+ * Note: The fee period parameter must be a valid fee period for the fee code
+ * parameter in the fee schedule parameter, or this function throws an error.
+ * 
+ * @param {String} feeSched Fee code to be added.
+ * @param {String} feeCode Fee schedule of the fee to be added.
+ * @param {String} feeDescr A description of the custom fee item.
+ * @param {number} feeAm Fee quantity.
+ * @param {String} feeAcc Fee account code 1.
+ * @param {String} feePeriod  Fee period to be used.
+ * (optional) CapIDModel Record to add fee to.
+ * 
+ * @returns  Returns the Fee Sequence number of the fee added or returns null 
+ * if there is an error
+ */
+
+function addCustomFee(feeSched, feeCode, feeDescr, feeAm, feeAcc, feePeriod) {
+	var feeCap;
+
+	if (arguments.length == 7) {
+		feeCap = arguments[6];
+	} else {
+		feeCap = capId;
+	}
+
+	if (typeof feeCap === typeof undefined) {
+		logDebug("Error: the global capId variable must be defined for this function or passed as the optional parameter.");
+		return null;
+	}
+
+	if (feePeriod == null) {
+		feePeriod = "FINAL";
+	}
+
+	var newFeeResult = aa.finance.createFeeItem(feeCap, feeSched, feeCode, feePeriod, feeAm);
+	if (newFeeResult.getSuccess()) {
+		var feeSeq = newFeeResult.getOutput();
+		var newFeeResult = aa.finance.getFeeItemByPK(feeCap, feeSeq);
+		if (!newFeeResult.getSuccess()) {
+			logDebug("EMSE API Error retrieving fee item: " + newFeeResult.getErrorMessage());
+			return null;
+		}
+		var newFee = newFeeResult.getOutput().getF4FeeItem();
+		newFee.setFeeDescription(feeDescr);
+
+		if (feeAcc) {
+			newFee.setAccCodeL1(feeAcc);
+		}
+
+		var feeObj = aa.finance.editFeeItem(newFee);
+		if (feeObj.getSuccess()) {
+			logDebug("Added Custom Fee: " + feeDescr);
+		} else {
+			logDebug("EMSE API Error Adding Fee: " + feeObj.getErrorMessage());
+			return null;
+		}
+	} else {
+		logDebug("EMSE API Error Adding Fee: " + newFeeResult.getErrorMessage());
+		return null;
+	}
+	return feeSeq;
+}
  
-function addFee(fcode, fsched, fperiod, fqty, finvoice) // Adds a single fee, optional argument: fCap
-{
+//@ts-check
+/**
+ * Adds a single fee fcode to the record, from the fee schedule fsched with fee period fperiod and quantity of fqty.
+ * If finvoice is Y, the function invoices the fee. 
+ * If finvoice is N, the function assesses the fee but does not invoice the fee.
+ * If you use the capID optional parameter, the function updates the identified Cap.
+ * If you do not use the capID parameter, the function updates the current record.
+ * getApplication( ), getParent( ), createChild() functions each returns a record ID object that you can use in the capID parameter.
+ * @param {string} fcode Fee Item Code
+ * @param {string} fsched Fee Schedule
+ * @param {string} fperiod Fee Payment Period. Must be a valid fee period for fcode in fsched
+ * @param {number} fqty Fee Quantity value
+ * @param {string} finvoice Should invoice indicator. "Y" || "N"
+ * @param {[object]} feeCap Optional. Sixth un-named argument. Will populate 'feeCap' if present.
+ * @returns Fee Sequence of new fee || null if an error was encountered
+ */
+
+function addFee(fcode, fsched, fperiod, fqty, finvoice) {
+	// Adds a single fee, optional argument: fCap
 	// Updated Script will return feeSeq number or null if error encountered (SR5112)
+
+    if (typeof fcode === typeof undefined || fcode == null || fcode == "") {
+        logDebug("'addFee' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fsched === typeof undefined || fsched == null || fsched == "") {
+        logDebug("'addFee' - fsched parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fperiod === typeof undefined || fperiod == null || fperiod == "") {
+        logDebug("'addFee' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fqty === typeof undefined || fqty == null || isNaN(fqty)) {
+        logDebug("'addFee' - fqty parameter is undefined, null, or not a number.");
+        return null;
+    }
+
+    if (typeof finvoice === typeof undefined || finvoice == null || (finvoice == "" || (finvoice != "Y" && finvoice != "N"))) {
+        logDebug("'addFee' - finvoice parameter is undefined, null, or an incorrect value.");
+        return null;
+    }
+
 	var feeCap = capId;
 	var feeCapMessage = "";
 	var feeSeq_L = new Array(); // invoicing fee for CAP in args
 	var paymentPeriod_L = new Array(); // invoicing pay periods for CAP in args
 	var feeSeq = null;
+
 	if (arguments.length > 5) {
 		feeCap = arguments[5]; // use cap ID specified in args
 		feeCapMessage = " to specified CAP";
+	} else {
+		if (typeof capId == "undefined") {
+			logDebug("ERROR : function 'addFee' relies on a CapID. Global var 'capId' is not set and there was no CapID passed as a parameter");
+			return null;
+		} else {
+			feeCap = capId;
+		}
+		// If invoice = 'y' we must check presence of global vars of fee arrays 
+        // 'feeSeqList' and 'paymentPeriodList' as well in this block.
+		// when using global 'capId' then the global arrays are used too.
+		if (finvoice == "Y" && (typeof feeSeqList == "undefined")) {
+			feeSeqList = [];
+		}
+		if (finvoice == "Y" && (typeof paymentPeriodList == "undefined")) {
+			paymentPeriodList = [];
+		}
 	}
-	assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, fcode, fperiod, fqty);
+
+	var assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, fcode, fperiod, fqty);
 	if (assessFeeResult.getSuccess()) {
 		feeSeq = assessFeeResult.getOutput();
 		logMessage("Successfully added Fee " + fcode + ", Qty " + fqty + feeCapMessage);
 		logDebug("The assessed fee Sequence Number " + feeSeq + feeCapMessage);
-		if (finvoice == "Y" && arguments.length == 5) // use current CAP
-		{
+
+		if (finvoice == "Y" && arguments.length == 5) {
+			// use current CAP
 			feeSeqList.push(feeSeq);
 			paymentPeriodList.push(fperiod);
 		}
-		if (finvoice == "Y" && arguments.length > 5) // use CAP in args
-		{
+		if (finvoice == "Y" && arguments.length > 5) {
+			// use CAP in args
 			feeSeq_L.push(feeSeq);
 			paymentPeriod_L.push(fperiod);
 			var invoiceResult_L = aa.finance.createInvoice(feeCap, feeSeq_L, paymentPeriod_L);
-			if (invoiceResult_L.getSuccess())
+			if (invoiceResult_L.getSuccess()) {
 				logMessage("Invoicing assessed fee items" + feeCapMessage + " is successful.");
-			else
+			} else {
 				logDebug("**ERROR: Invoicing the fee items assessed" + feeCapMessage + " was not successful.  Reason: " + invoiceResult.getErrorMessage());
+				return null;
+			}
 		}
 		updateFeeItemInvoiceFlag(feeSeq, finvoice);
 	} else {
@@ -587,303 +1047,664 @@ function addFee(fcode, fsched, fperiod, fqty, finvoice) // Adds a single fee, op
 	return feeSeq;
 }
  
- 
-function addFeeByDate(feeCap, fdate,fcode, fsched, fperiod, fqty, finvoice) // Adds a single fee, optional argument: fCap
-{
-	// Updated Script will return feeSeq number or null if error encountered (SR5112)
-	
-	var feeSeq_L = new Array(); // invoicing fee for CAP in args
-	var paymentPeriod_L = new Array(); // invoicing pay periods for CAP in args
-	var feeSeq = null;
-	var feeCapMessage = " to " + feeCap.getCustomID();
-	var f = aa.proxyInvoker.newInstance("com.accela.aa.finance.fee.RefFeeBusiness").getOutput();
-	if (!f) { logDebug("could not instantiate RefFeeBusiness to determine fee version, exiting addFeeByDate");
-	return false;
-	}
-	
-	var vDate = convertDate(fdate);
-	
-	if (!vDate) { logDebug("could not convert date parameter to javascript date, exiting addFeeByDate");
-	return false;
-	}
-	
-	var v = f.getDefaultVersionBySchedule(aa.getServiceProviderCode(),fsched,vDate,"ADMIN");
-	if (!v) { logDebug("could not determine default version for fee schedule " + fsched + ", exiting addFeeByDate");
-	return false;
-	}
-	
-	assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, v, fcode, fperiod, fqty);
-	if (assessFeeResult.getSuccess()) {
-		feeSeq = assessFeeResult.getOutput();
-		logDebug("Successfully added Fee:" + fcode + ", Qty:" + fqty + " Version:" + v + " Sched: " + fsched + " based on date " + vDate + " " + feeCapMessage + ".  The assessed fee Sequence Number " + feeSeq + feeCapMessage);
-		if (finvoice == "Y" && arguments.length == 5) // use current CAP
-		{	
-			feeSeqList.push(feeSeq);
-			paymentPeriodList.push(fperiod);
-		}
-		if (finvoice == "Y" && arguments.length > 5) // use CAP in args
-		{
-			feeSeq_L.push(feeSeq);
-			paymentPeriod_L.push(fperiod);
-			var invoiceResult_L = aa.finance.createInvoice(feeCap, feeSeq_L, paymentPeriod_L);
-			if (invoiceResult_L.getSuccess())
-				logMessage("Invoicing assessed fee items" + feeCapMessage + " is successful.");
-			else
-				logDebug("**ERROR: Invoicing the fee items assessed" + feeCapMessage + " was not successful.  Reason: " + invoiceResult.getErrorMessage());
-		}
-		updateFeeItemInvoiceFlag(feeSeq, finvoice);
-	} else {
-		logDebug("**ERROR: assessing fee (" + fcode + "): " + assessFeeResult.getErrorMessage());
-		feeSeq = null;
-	}
-	return feeSeq;
+
+/**
+ * Create new Fee Item on the supplied Cap. 
+ * The new Fee Sequence (int) will be returned if process was a success. Otherwise, null is returned.
+ * @param {object} feeCap CapID
+ * @param {object} fdate Object which can resolve to a JS Date using function 'convertDate'
+ * @param {string} fcode Fee Item Code
+ * @param {string} fsched Fee Schedule
+ * @param {string} fperiod Fee Payment Period
+ * @param {number} fqty Fee Quantity
+ * @param {String} finvoice "Y" or "N"
+ * @returns {number} returns fee sequence number if successful || null if not successful
+ */
+function addFeeByDate(feeCap, fdate, fcode, fsched, fperiod, fqty, finvoice) {
+if (typeof feeCap === typeof undefined || feeCap == null) {
+        logDebug("Error: 'addFeeByDate' - feeCap is undefined.");
+        return null;
+      }
+    
+      if (typeof fdate === typeof undefined || fdate == null || fdate == "") {
+        logDebug("Error: 'addFeeByDate' - fdate parameter is undefined, null, or an empty string.");
+        return null;
+      }
+    
+      if (typeof fcode === typeof undefined || fcode == null || fcode == "") {
+        logDebug("Error: 'addFeeByDate' - fcode parameter is undefined, null, or an empty string.");
+        return null;
+      }
+    
+      if (typeof fsched === typeof undefined || fsched == null || fsched == "") {
+        logDebug("Error: 'addFeeByDate' - fsched parameter is undefined, null, or an empty string.");
+        return null;
+      }
+    
+      if (typeof fperiod === typeof undefined || fperiod == null || fperiod == "") {
+        logDebug("Error: 'addFeeByDate' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+      }
+    
+      if (typeof fqty === typeof undefined || fqty == null || isNaN(fqty)) {
+        logDebug("Error: 'addFeeByDate' - fqty parameter is undefined, null, or not a number.");
+        return null;
+      }
+
+    if (finvoice == "Y") {
+        if (typeof feeSeqList === typeof undefined) {
+            feeSeqList = new Array();
+        }
+
+        if (typeof paymentPeriodList === typeof undefined) {
+            paymentPeriodList = new Array();
+        }
+    }
+
+    var feeSeq_L = new Array(); // invoicing fee for CAP in args
+    var paymentPeriod_L = new Array(); // invoicing pay periods for CAP in args
+    var feeSeq = null;
+    var feeCapMessage = " to " + feeCap.getCustomID();
+
+    var f = aa.proxyInvoker.newInstance("com.accela.aa.finance.fee.RefFeeBusiness").getOutput();
+    if (!f) {
+        logDebug("Error: could not instantiate RefFeeBusiness to determine fee version, exiting addFeeByDate");
+        return null;
+    }
+
+    var vDate = convertDate(fdate);
+
+    if (!vDate) {
+        logDebug("Error: could not convert date parameter to javascript date, exiting addFeeByDate");
+        return null;
+    }
+
+    var v = f.getDefaultVersionBySchedule(aa.getServiceProviderCode(), fsched, vDate, "ADMIN");
+
+    if (!v) {
+        logDebug("Error: could not determine default version for fee schedule " + fsched + ", exiting addFeeByDate");
+        return null;
+    }
+
+    var assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, v, fcode, fperiod, fqty);
+    if (assessFeeResult.getSuccess()) {
+        feeSeq = assessFeeResult.getOutput();
+        logDebug("Successfully added Fee:" + fcode + ", Qty:" + fqty + " Version:" + v + " Sched: " + fsched + " based on date " + vDate + " " + feeCapMessage + ".  The assessed fee Sequence Number " + feeSeq + feeCapMessage);
+
+        // TODO revisit testing length of args in next iteration. 
+        // will always be gt 5 b/c finvoice is at index 6
+        if (finvoice == "Y" && arguments.length == 5) {
+            // use current CAP
+            feeSeqList.push(feeSeq);
+            paymentPeriodList.push(fperiod);
+        }
+        if (finvoice == "Y" && arguments.length > 5) {
+            // use CAP in args
+            feeSeq_L.push(feeSeq);
+            paymentPeriod_L.push(fperiod);
+            var invoiceResult_L = aa.finance.createInvoice(feeCap, feeSeq_L, paymentPeriod_L);
+            if (invoiceResult_L.getSuccess()) {
+                logMessage("Invoicing assessed fee items" + feeCapMessage + " is successful.");
+            } else {
+                logDebug("**ERROR: Invoicing the fee items assessed" + feeCapMessage + " was not successful.  Reason: " + invoiceResult_L.getErrorMessage());
+            }
+        }
+        updateFeeItemInvoiceFlag(feeSeq, finvoice);
+    } else {
+        logDebug("**ERROR: assessing fee (" + fcode + "): " + assessFeeResult.getErrorMessage());
+        feeSeq = null;
+    }
+    return feeSeq;
 }
  
- 
+/**
+ * Identical to the addFee function. Also allows you to populate the Fee Item Comment 
+ * and User-Defined Fields (UDF1, UDF2).
+ * @param {string} fcode Fee Item Code
+ * @param {string} fsched Fee Schedule
+ * @param {string} fperiod Fee Payment Period
+ * @param {number} fqty Fee Quantity value
+ * @param {string} finvoice Should invoice indicator. "Y" || "N"
+ * @param {object} feeCap CapID object
+ * @param {string} feeComment Fee Comment
+ * @param {string} UDF1 User Defined Field 1
+ * @param {string} UDF2 User Defined Feild 2
+ * @returns 
+ */
 function addFeeWithExtraData(fcode, fsched, fperiod, fqty, finvoice, feeCap, feeComment, UDF1, UDF2) {
+
+    if (typeof fcode === typeof undefined || fcode == null || fcode == "") {
+        logDebug("'addFeeWithExtraData' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fsched === typeof undefined || fsched == null || fsched == "") {
+        logDebug("'addFeeWithExtraData' - fsched parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fperiod === typeof undefined || fperiod == null || fperiod == "") {
+        logDebug("'addFeeWithExtraData' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fqty === typeof undefined || fqty == null || isNaN(fqty)) {
+        logDebug("'addFeeWithExtraData' - fqty parameter is undefined, null, or not a number.");
+        return null;
+    }
+
+    if (typeof finvoice === typeof undefined || finvoice == null || (finvoice == "" || (finvoice != "Y" && finvoice != "N"))) {
+        logDebug("'addFeeWithExtraData' - finvoice parameter is undefined, null, or an incorrect value.");
+        return null;
+    }
+
     var feeCapMessage = "";
     var feeSeq_L = new Array(); 			// invoicing fee for CAP in args
     var paymentPeriod_L = new Array(); 		// invoicing pay periods for CAP in args
+
     assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, fcode, fperiod, fqty);
     if (assessFeeResult.getSuccess()) {
-        feeSeq = assessFeeResult.getOutput();
+        var feeSeq = assessFeeResult.getOutput();
         logMessage("Successfully added Fee " + fcode + ", Qty " + fqty + feeCapMessage);
         logDebug("The assessed fee Sequence Number " + feeSeq + feeCapMessage);
-        fsm = aa.finance.getFeeItemByPK(feeCap, feeSeq).getOutput().getF4FeeItem();
-        if (feeComment) fsm.setFeeNotes(feeComment);
-        if (UDF1) fsm.setUdf1(UDF1);
-        if (UDF2) fsm.setUdf2(UDF2);
-        aa.finance.editFeeItem(fsm)
 
-        if (finvoice == "Y" && arguments.length == 5) // use current CAP
-        {
+        fsm = aa.finance.getFeeItemByPK(feeCap, feeSeq).getOutput().getF4FeeItem();
+
+        if (feeComment){
+            fsm.setFeeNotes(""+feeComment); // force string
+        } 
+        if (UDF1) {
+            fsm.setUdf1(""+UDF1); // force string
+        }
+        if (UDF2) {
+            fsm.setUdf2(""+UDF2); // force string
+        }
+
+        aa.finance.editFeeItem(fsm);
+
+        // TODO revisit on next iteration. 
+        // args count will always be gt 5
+        if (finvoice == "Y" && arguments.length == 5) {
+            // use current CAP
+            if(typeof feeSeqList === typeof undefined){
+                feeSeqList = new Array();
+            }
+            if(typeof paymentPeriodList === typeof undefined){
+                paymentPeriodList = new Array();
+            }
             feeSeqList.push(feeSeq);
             paymentPeriodList.push(fperiod);
         }
-        if (finvoice == "Y" && arguments.length > 5) // use CAP in args
-        {
+        if (finvoice == "Y" && arguments.length > 5) {
+            // use CAP in args
             feeSeq_L.push(feeSeq);
             paymentPeriod_L.push(fperiod);
             var invoiceResult_L = aa.finance.createInvoice(feeCap, feeSeq_L, paymentPeriod_L);
-            if (invoiceResult_L.getSuccess())
+            if (invoiceResult_L.getSuccess()) {
                 logMessage("Invoicing assessed fee items is successful.");
-            else
+            } else {
                 logDebug("**ERROR: Invoicing the fee items assessed was not successful.  Reason: " + invoiceResult.getErrorMessage());
+                return null;
+            }
         }
-    }
-    else {
+    } else {
         logDebug("**ERROR: assessing fee (" + fcode + "): " + assessFeeResult.getErrorMessage());
         return null;
     }
+
     return feeSeq;
+
 }
  
- 
+/**
+ * Identical to the addFeeWithExtraData function, which allows you to populate the Fee Item Comment 
+ * and User-Defined Fields (UDF1, UDF2). This version is expanded to find correct Fee Schedule version by date.
+ * @param {object} feeCap CapID object - NOTE known issue ~ this parm (position 0) will not be used.
+ * @param {object} fdate Object which can resolve to a JS Date using function 'convertDate'
+ * @param {string} fcode Fee Item Code
+ * @param {string} fsched Fee Schedule
+ * @param {string} fperiod Fee Payment Period
+ * @param {number} fqty Fee Quantity value
+ * @param {string} finvoice Should invoice indicator. "Y" || "N"
+ * @param {object} feeCap CapID object - NOTE this is the 'feeCap' parm (position 7) which MUST be populated
+ * @param {string} feeComment Fee Comment
+ * @param {string} UDF1 User Defined Field 1
+ * @param {string} UDF2 User Defined Feild 2
+ * @returns {number | null } Fee Sequence Number of new Fee Item | Returns null if there was an issue.
+ */
 function addFeeWithExtraDataByDate(feeCap, fdate, fcode, fsched, fperiod, fqty, finvoice, feeCap, feeComment, UDF1, UDF2) {
-	// Updated Script will return feeSeq number or null if error encountered (SR5112)
-	
-	var feeSeq_L = new Array(); // invoicing fee for CAP in args
-	var paymentPeriod_L = new Array(); // invoicing pay periods for CAP in args
-	var feeSeq = null;
-	var feeCapMessage = " to " + feeCap.getCustomID();
-	var f = aa.proxyInvoker.newInstance("com.accela.aa.finance.fee.RefFeeBusiness").getOutput();
-	if (!f) { logDebug("could not instantiate RefFeeBusiness to determine fee version, exiting addFeeByDate");
-	return false;
-	}
-	
-	var vDate = convertDate(fdate);
-	
-	if (!vDate) { logDebug("could not convert date parameter to javascript date, exiting addFeeByDate");
-	return false;
-	}
-	
-	var v = f.getDefaultVersionBySchedule(aa.getServiceProviderCode(),fsched,vDate,"ADMIN");
-	if (!v) { logDebug("could not determine default version for fee schedule " + fsched + ", exiting addFeeByDate");
-	return false;
-	}
-	
-    assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, fcode, fperiod, fqty);
+    // Updated Script will return feeSeq number or null if error encountered (SR5112)
+    if (typeof feeCap === typeof undefined || feeCap == null) {
+        logDebug("'addFeeWithExtraDataByDate' - feeCap parameter is undefined or null");
+        return null;
+    }
+
+    if (typeof fcode === typeof undefined || fcode == null || fcode == "") {
+        logDebug("'addFeeWithExtraDataByDate' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fsched === typeof undefined || fsched == null || fsched == "") {
+        logDebug("'addFeeWithExtraDataByDate' - fsched parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fperiod === typeof undefined || fperiod == null || fperiod == "") {
+        logDebug("'addFeeWithExtraDataByDate' - fperiod parameter is undefined, null, or an empty string.");
+        return null;
+    }
+
+    if (typeof fqty === typeof undefined || fqty == null || isNaN(fqty)) {
+        logDebug("'addFeeWithExtraDataByDate' - fqty parameter is undefined, null, or not a number.");
+        return null;
+    }
+
+    if (typeof finvoice === typeof undefined || finvoice == null || (finvoice == "" || (finvoice != "Y" && finvoice != "N"))) {
+        logDebug("'addFeeWithExtraDataByDate' - finvoice parameter is undefined, null, or an incorrect value.");
+        return null;
+    }
+
+
+    var feeSeq_L = new Array(); // invoicing fee for CAP in args
+    var paymentPeriod_L = new Array(); // invoicing pay periods for CAP in args
+    var feeSeq = null;
+    var feeCapMessage = " to " + feeCap.getCustomID();
+
+    var f = aa.proxyInvoker.newInstance("com.accela.aa.finance.fee.RefFeeBusiness").getOutput();
+    if (!f) {
+        logDebug("could not instantiate RefFeeBusiness to determine fee version, exiting addFeeWithExtraDataByDate");
+        return null;
+    }
+
+    var vDate = convertDate(fdate);
+
+    if (!vDate) {
+        logDebug("could not convert date parameter to javascript date, exiting addFeeWithExtraDataByDate");
+        return null;
+    }
+
+    var v = f.getDefaultVersionBySchedule(aa.getServiceProviderCode(), fsched, vDate, "ADMIN");
+
+    if (!v) {
+        logDebug("could not determine default version for fee schedule " + fsched + " based on date " + vDate + ", exiting addFeeWithExtraDataByDate");
+        return null;
+    }
+
+    var assessFeeResult = aa.finance.createFeeItem(feeCap, fsched, fcode, fperiod, fqty);
     if (assessFeeResult.getSuccess()) {
         feeSeq = assessFeeResult.getOutput();
-		logDebug("Successfully added Fee:" + fcode + ", Qty:" + fqty + " Version:" + v + " Sched: " + fsched + " based on date " + vDate + " " + feeCapMessage + ".  The assessed fee Sequence Number " + feeSeq + feeCapMessage);
-        fsm = aa.finance.getFeeItemByPK(feeCap, feeSeq).getOutput().getF4FeeItem();
-        if (feeComment) fsm.setFeeNotes(feeComment);
-        if (UDF1) fsm.setUdf1(UDF1);
-        if (UDF2) fsm.setUdf2(UDF2);
-        aa.finance.editFeeItem(fsm)
+        logDebug("Successfully added Fee:" + fcode + ", Qty:" + fqty + " Version:" + v + " Sched: " + fsched + " based on date " + vDate + " " + feeCapMessage + ".  The assessed fee Sequence Number " + feeSeq + feeCapMessage);
 
-        if (finvoice == "Y" && arguments.length == 5) // use current CAP
-        {
+        var fsm = aa.finance.getFeeItemByPK(feeCap, feeSeq).getOutput().getF4FeeItem();
+
+        if (feeComment){
+            fsm.setFeeNotes(""+feeComment); // force string
+        } 
+        if (UDF1) {
+            fsm.setUdf1(""+UDF1); // force string
+        }
+        if (UDF2) {
+            fsm.setUdf2(""+UDF2); // force string
+        }
+
+        aa.finance.editFeeItem(fsm);
+
+
+        // TODO revisit on next iteration. 
+        // args count will always be gt 5
+        if (finvoice == "Y" && arguments.length == 5) {
+            // use current CAP
+            if(typeof feeSeqList === typeof undefined){
+                feeSeqList = new Array();
+            }
+            if(typeof paymentPeriodList === typeof undefined){
+                paymentPeriodList = new Array();
+            }
             feeSeqList.push(feeSeq);
             paymentPeriodList.push(fperiod);
         }
-        if (finvoice == "Y" && arguments.length > 5) // use CAP in args
-        {
+        if (finvoice == "Y" && arguments.length > 5) {
+            // use CAP in args
             feeSeq_L.push(feeSeq);
             paymentPeriod_L.push(fperiod);
             var invoiceResult_L = aa.finance.createInvoice(feeCap, feeSeq_L, paymentPeriod_L);
-            if (invoiceResult_L.getSuccess())
+            if (invoiceResult_L.getSuccess()) {
                 logMessage("Invoicing assessed fee items is successful.");
-            else
+            } else {
                 logDebug("**ERROR: Invoicing the fee items assessed was not successful.  Reason: " + invoiceResult.getErrorMessage());
+                return null;
+            }
         }
-    }
-    else {
+    } else {
         logDebug("**ERROR: assessing fee (" + fcode + "): " + assessFeeResult.getErrorMessage());
         return null;
     }
+
     return feeSeq;
+
 }
  
- 
-function addGuideSheet(itemCapId,inspectionId,guideSheetName) {
-	
+/**
+ * Will copy GuideSheet (Ref Checklist) to Inspection.
+ * This Inspection must be on the Cap identified.
+ * @param {object} itemCapId CapID instance
+ * @param {number} inspectionId ID Number for Inspection to use
+ * @param {string} guideSheetName GuideSheet Name (Reference Checklist name)
+ * @returns {number | undefined} If errors/issues were encountered then undefined is returned. If the process was success then Guide Sheet Sequence ID is returned
+ */
+function addGuideSheet(itemCapId, inspectionId, guideSheetName) {
+
+	if (typeof itemCapId == "undefined" || !itemCapId || typeof itemCapId.getCustomID == "undefined") {
+		logDebug("'addGuideSheet' requires CapID for parameter 'itemCapId' ");
+		return;
+	}
+	if (typeof inspectionId == "undefined" || !inspectionId || isNaN(inspectionId)) {
+		logDebug("'addGuideSheet' requires Inspection ID (integer) for parameter 'inspectionId' ");
+		return;
+	}
+	if (typeof guideSheetName == "undefined" || !guideSheetName) {
+		logDebug("'addGuideSheet' requires parameter 'guideSheetName' ");
+		return;
+	}
+
+	// force inspectionId to int
+	inspectionId = parseInt("" + inspectionId);
 	var rgsm = null;
 	var r = aa.proxyInvoker.newInstance("com.accela.aa.inspection.guidesheet.RGuideSheetBusiness").getOutput();
 	if (r) {
-		rgsm = r.getRGuideSheet(aa.getServiceProviderCode(), guideSheetName);
+		try {
+			rgsm = r.getRGuideSheet(aa.getServiceProviderCode(), guideSheetName);
+		} catch (err) {
+			logDebug("'addGuideSheet' could not get GuideSheet instance with name " + guideSheetName);
+			return;
+		}
 	}
-	
+
 	var g = aa.proxyInvoker.newInstance("com.accela.aa.inspection.guidesheet.GGuideSheetBusiness").getOutput();
-	
+
 	if (rgsm) {
-		var gsSequence = g.createGGuideSheet(itemCapId,rgsm,inspectionId,"ADMIN");
+		try {
+			// TODO - any number inspectionId will pass. In next iteration check that the inspectionId/itemCapId is valid.
+			var gsSequence = g.createGGuideSheet(itemCapId, rgsm, inspectionId, "ADMIN");
+		} catch (err) {
+			logDebug("'addGuideSheet' error attaching GuideSheet " + guideSheetName + "  : " + err);
+			return;
+		}
 		return gsSequence;
-		}
 	}
-		
+}
  
- 
-function addLicenseCondition(cType,cStatus,cDesc,cComment,cImpact)
-	{
+//@ts-check
+/**
+ * Adds the condition (cType, cStatus, cDesc, cComment, cImpact) to the 
+ * reference record for each licensed professional on the record. If a standard
+ * condition is associated with an ASI group (condition template), the method 
+ * adds the condition with the template fields and tables. You can call the 
+ * method to add duplicate conditions to a record.
+ *
+ * **Note:**
+ * If you use the stateLicNum parameter, the function adds the condition to the 
+ * licensed professional reference record whose State License Number is 
+ * stateLicNum. This licensed professional may not be on the current record.
+ *
+ * ----
+ * **Env variables:**
+ * - systemUserObj
+ * - capId
+ * - sysDate
+ * 
+ * ----
+ * @param {string} cType Condition type.
+ * @param {string} cStatus Condition status
+ * @param {string} cDesc Condition (30 characters maximum).
+ * @param {string} cComment Condition comment (free text).
+ * @param {("Lock" | "Hold" | "Notice" | "Required" | "")} cImpact Condition severity: Lock, Hold, Notice, Required, or "".
+ * @param {string} [stateLicNum] (unnamed/optional) State license number.
+ * @returns {boolean} Returns true if succesful, false if not. It can fail to add the condition to one License Professional, but it will try to add to all the remaining ones.
+ */
+function addLicenseCondition(cType, cStatus, cDesc, cComment, cImpact) {
+
+	if (typeof sysDate == "undefined") {
+		logDebug("'addLicenseCondition'- global 'sysDate' is undefined.");
+		return false;
+	}
+	if (typeof systemUserObj == "undefined") {
+		logDebug("'addLicenseCondition'- global 'systemUserObj' is undefined.");
+		return false;
+	}
+    if (typeof cType == "undefined" || cType == null || cType == "") {	
+		logDebug("'addLicenseCondition'- parameter 'cType' is required");
+		return false;
+	}
+    if (typeof cStatus == "undefined" || cStatus == null || cStatus == "") {	
+		logDebug("'addLicenseCondition'- parameter 'cStatus' is required");
+		return false;
+	}
+	if (typeof cDesc == "undefined" || cDesc == null || cDesc == "") {	
+		logDebug("'addLicenseCondition'- parameter 'cDesc' is required");
+		return false;
+	}
+	if ((typeof cImpact == "undefined") || !matches(cImpact, "Lock", "Hold", "Notice", "Required", "")) {
+		logDebug("'addLicenseCondition'- parameter 'cImpact' is required and must be one of: [\"Lock\", \"Hold\", \"Notice\", \"Required\", \"\"]");
+		return false;
+	}
+
 	// Optional 6th argument is license number, otherwise add to all CAEs on CAP
-	refLicArr = new Array();
-	if (arguments.length == 6) // License Number provided
-		{
+	var refLicArr = new Array();
+	if (arguments.length >= 6) {
+		// License Number provided
 		refLicArr.push(getRefLicenseProf(arguments[5]));
+	} else {
+		if (typeof capId == "undefined") {
+			logDebug("'addLicenseCondition'- global 'capId' must be defined if License Number is not sent as parameter");
+			return false;
 		}
-	else // adding to cap lic profs
-		{
+		// adding to cap lic profs
 		var capLicenseResult = aa.licenseScript.getLicenseProf(capId);
-		if (capLicenseResult.getSuccess())
-			{ var refLicArr = capLicenseResult.getOutput();  }
-		else
-			{ logDebug("**ERROR: getting lic profs from Cap: " + capLicenseResult.getErrorMessage()); return false; }
-		}
-	for (var refLic in refLicArr)
-		{
-		if (arguments.length == 6) // use sequence number
-			licSeq = refLicArr[refLic].getLicSeqNbr();
-		else
-			licSeq = refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr();
-		if (licSeq >= 0)
-			{
-			var addCAEResult = aa.caeCondition.addCAECondition(licSeq, cType, cDesc, cComment, null, null, cImpact, cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj)
-			if (addCAEResult.getSuccess())
-				{
-				logDebug("Successfully added licensed professional (" + licSeq + ") condition (" + cImpact + ") " + cDesc);
-				}
-			else
-				{
-				logDebug( "**ERROR: adding licensed professional (" + licSeq + ") condition (" + cImpact + "): " + addCAEResult.getErrorMessage());
-				}
-			}
-		else
-			logDebug("No reference link to license : " + refLicArr[refLic].getLicenseNbr());
+		if (capLicenseResult.getSuccess()) {
+			refLicArr = capLicenseResult.getOutput();
+		} else {
+			logDebug('**ERROR: getting lic profs from Cap: ' + capLicenseResult.getErrorMessage());
+			return false;
 		}
 	}
- 
- 
-function addLicenseStdCondition(licSeqNum,cType,cDesc)
-	{
-	var foundCondition = false;
-	
-	cStatus = "Applied";
-	if (arguments.length > 3)
-		cStatus = arguments[3]; // use condition status in args
-		
-	if (!aa.capCondition.getStandardConditions)
-		{
-		logDebug("addLicenseStdCondition function is not available in this version of Accela Automation.");
+
+	var errorInIteration = false;
+
+	for (var refLic in refLicArr) {
+		var licSeq;
+		if (arguments.length >= 6) {
+			// use given sequence number
+			licSeq = refLicArr[refLic].getLicSeqNbr();
+		} else {
+			licSeq = refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr();
 		}
-        else
-		{
-		standardConditions = aa.capCondition.getStandardConditions(cType,cDesc).getOutput();
-		for(i = 0; i<standardConditions.length;i++)
-			if(standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) //EMSE Dom function does like search, needed for exact match
-			{
-			standardCondition = standardConditions[i]; // add the last one found
-			
-			foundCondition = true;
-		
-			if (!licSeqNum) // add to all reference licenses on the current capId
-				{
-				var capLicenseResult = aa.licenseScript.getLicenseProf(capId);
-				if (capLicenseResult.getSuccess())
-					{ var refLicArr = capLicenseResult.getOutput();  }
-				else
-					{ logDebug("**ERROR: getting lic profs from Cap: " + capLicenseResult.getErrorMessage()); return false; }
-				for (var refLic in refLicArr)
-					if (refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr())
-						{
-						licSeq = refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr();
-						var addCAEResult = aa.caeCondition.addCAECondition(licSeq, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
-						if (addCAEResult.getSuccess())
-							{
-							logDebug("Successfully added licensed professional (" + licSeq + ") condition: " + cDesc);
-							}
-						else
-							{
-							logDebug( "**ERROR: adding licensed professional (" + licSeq + ") condition: " + addCAEResult.getErrorMessage());
+
+		if (licSeq >= 0) {
+			var addCAEResult = aa.caeCondition.addCAECondition(
+				licSeq,
+				cType,
+				cDesc,
+				cComment,
+				null,
+				null,
+				cImpact,
+				cStatus,
+				sysDate,
+				null,
+				sysDate,
+				sysDate,
+				systemUserObj,
+				systemUserObj
+			);
+
+			if (addCAEResult.getSuccess()) {
+				logDebug('Successfully added licensed professional (' + licSeq + ') condition (' + cImpact + ') ' + cDesc);
+			} else {
+				logDebug('**ERROR: adding licensed professional (' + licSeq + ') condition (' + cImpact + '): ' + addCAEResult.getErrorMessage());
+				errorInIteration = true;
+			}
+		} else {
+			logDebug('No reference link to license : ' + refLicArr[refLic].getLicenseNbr());
+		}
+	}
+
+	return !errorInIteration;
+}
+ 
+//@ts-check
+
+/**
+ * Adds a standard condition to the specified reference licensed professional. If a standard condition is
+ * associated with an ASI group (condition template), the method adds the condition with the template fields
+ * and tables. You can call the method to add duplicate conditions to a record.
+ * 
+ * ** Note:**
+ * If licSeqNum is null, the function adds the condition to all reference licensed professionals associated with
+ * the current record.
+ * 
+ * ----
+ * **Env variables:**
+ * - systemUserObj
+ * - capId
+ * - sysDate
+ * 
+ * ----
+ * @param {number} licSeqNum Reference license sequence number or null.
+ * @param {string} cType Type of the standard condition.
+ * @param {string} cDesc Description of the standard condition.
+ * @param {string} [cStatus=Applied] (unnamed/optional) cStatus Condition status.
+ * @returns {boolean|undefined} Returns FALSE in some error conditions. Otherwise, returns nothing.
+ */
+
+function addLicenseStdCondition(licSeqNum, cType, cDesc) {
+	var foundCondition = false;
+	var cStatus = "Applied";
+
+	if (typeof sysDate === typeof undefined) {
+		logDebug("'addLicenseStdCondition' - global variable 'sysDate' is undefined.");
+		return false;
+	}
+
+	if (typeof systemUserObj === typeof undefined) {
+		logDebug("'addLicenseStdCondition' - global var 'systemUserObj' is undefined.");
+		return false;
+	}
+
+
+	if (arguments.length > 3) {
+		// use condition status in args
+		cStatus = arguments[3];
+	}
+
+	if (!aa.capCondition.getStandardConditions) {
+		logDebug("addLicenseStdCondition function is not available in this version of Accela Automation.");
+	} else {
+		var standardConditions = aa.capCondition.getStandardConditions(cType, cDesc).getOutput();
+		for (var i = 0; i < standardConditions.length; i++) {
+			if (standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase()) {
+				//EMSE Dom function does like search, needed for exact match
+
+				var standardCondition = standardConditions[i]; // add the last one found
+
+				foundCondition = true;
+
+				if (!licSeqNum) {
+					// add to all reference licenses on the current capId
+
+					if (typeof capId === typeof undefined) {
+						logDebug("'addLicenseStdCondition' - global var 'capId' is undefined.");
+						return false;
+					}
+
+					var capLicenseResult = aa.licenseScript.getLicenseProf(capId);
+					if (capLicenseResult.getSuccess()) {
+						var refLicArr = capLicenseResult.getOutput();
+					} else {
+						logDebug("**ERROR: getting lic profs from Cap: " + capLicenseResult.getErrorMessage());
+						return false;
+					}
+
+					for (var refLic in refLicArr) {
+						if (refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr()) {
+							var licSeq = refLicArr[refLic].getLicenseProfessionalModel().getLicSeqNbr();
+							var addCAEResult = aa.caeCondition.addCAECondition(licSeq, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
+
+							if (addCAEResult.getSuccess()) {
+								logDebug("Successfully added licensed professional (" + licSeq + ") condition: " + cDesc);
+							} else {
+								logDebug("**ERROR: adding licensed professional (" + licSeq + ") condition: " + addCAEResult.getErrorMessage());
 							}
 						}
+					}
+				} else {
+					var addCAEResult = aa.caeCondition.addCAECondition(licSeqNum, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
+
+					if (addCAEResult.getSuccess()) {
+						logDebug("Successfully added licensed professional (" + licSeqNum + ") condition: " + cDesc);
+					} else {
+						logDebug("**ERROR: adding licensed professional (" + licSeqNum + ") condition: " + addCAEResult.getErrorMessage());
+					}
 				}
-			else
-				{
-				var addCAEResult = aa.caeCondition.addCAECondition(licSeqNum, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), null, null, standardCondition.getImpactCode(), cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj);
-				
-				if (addCAEResult.getSuccess())
-					{
-					logDebug("Successfully added licensed professional (" + licSeqNum + ") condition: " + cDesc);
-					}
-					else
-					{
-					logDebug( "**ERROR: adding licensed professional (" + licSeqNum + ") condition: " + addCAEResult.getErrorMessage());
-					}
-				}	
 			}
 		}
-	if (!foundCondition) logDebug( "**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
 	}
+	if (!foundCondition) {
+		logDebug("**WARNING: couldn't find standard condition for " + cType + " / " + cDesc);
+	}
+}
+
  
- 
-function addLookup(stdChoice,stdValue,stdDesc) 
-	{
-	//check if stdChoice and stdValue already exist; if they do, don't add
-	var bizDomScriptResult = aa.bizDomain.getBizDomainByValue(stdChoice,stdValue);
-	if (bizDomScriptResult.getSuccess())
-		{
-		logDebug("Standard Choices Item "+stdChoice+" and Value "+stdValue+" already exist.  Lookup is not added or updated.");
+// @ts-check
+
+/**
+ * Adds a lookup entry to an existing standard choices item. Adds a new value called stdValue with the value
+ * description of stdDesc to standard choices item name stdChoice.
+ * 
+ * ** Notes **
+ * If the standard choices item stdChoice already has a value entry called stdValue, the function does not add
+ * or update stdValue. This function does not create the standard choices item stdChoice if it does not exist.
+ * 
+ * @param {string} stdChoice Standard choices item name.
+ * @param {string} stdValue Standard choices value.
+ * @param {string} stdDesc Standard choices value description.
+ * @returns {boolean | undefined} FALSE is returned for some error conditions | undefined for some errors and success
+ */
+
+function addLookup(stdChoice, stdValue, stdDesc) {
+	if (typeof stdChoice == "undefined" || stdChoice == null || stdChoice == "") {
+		logDebug("'addLookup' - var 'stdChoice' is required and must not be blank");
 		return false;
-		}
+	}
+	if (typeof stdValue == "undefined" || stdValue == null || stdValue == "") {
+		logDebug("'addLookup' - var 'stdValue' is required and must not be blank");
+		return false;
+	}
+	if (typeof stdDesc == "undefined" || stdDesc == null) {
+		logDebug("'addLookup' - var 'stdDesc' is required");
+		return false;
+	}
+	//check if stdChoice and stdValue already exist; if they do, don't add
+	var bizDomScriptResult = aa.bizDomain.getBizDomainByValue(stdChoice, stdValue);
+	if (bizDomScriptResult.getSuccess()) {
+		logDebug("Standard Choices Item " + stdChoice + " and Value " + stdValue + " already exist.  Lookup is not added or updated.");
+		return false;
+	}
+
 	//Proceed to add
 	var strControl;
-	
-	if (stdChoice != null && stdChoice.length && stdValue != null && stdValue.length && stdDesc != null && stdDesc.length)
-		{
+	// TODO : standardize return values. Return TRUE or FALSE only.
+	if (stdChoice != null && stdChoice.length && stdValue != null && stdValue.length && stdDesc != null && stdDesc.length) {
 		var bizDomScriptResult = aa.bizDomain.createBizDomain(stdChoice, stdValue, "A", stdDesc)
-		if (bizDomScriptResult.getSuccess())
-			//check if new Std Choice actually created
-
+		if (bizDomScriptResult.getSuccess()) {
 			logDebug("Successfully created Std Choice(" + stdChoice + "," + stdValue + ") = " + stdDesc);
-		else
+		} else {
 			logDebug("**ERROR creating Std Choice " + bizDomScriptResult.getErrorMessage());
 		}
-	else
+	} else {
 		logDebug("Could not create std choice, one or more null values");
 	}
- 
- 
+} 
  function addParameter(pamaremeters, key, value)
 {
 	if(key != null)
@@ -896,12 +1717,13 @@ function addLookup(stdChoice,stdValue,stdDesc)
 	}
 }
  
- 
 function addParcelAndOwnerFromRefAddress(refAddress) // optional capID
 {
+
 	var itemCap = capId
 		if (arguments.length > 1)
 			itemCap = arguments[1]; // use cap ID specified in args
+
 		// first add the primary parcel
 		//
 		var primaryParcelResult = aa.parcel.getPrimaryParcelByRefAddressID(refAddress, "Y");
@@ -911,15 +1733,19 @@ function addParcelAndOwnerFromRefAddress(refAddress) // optional capID
 		logDebug("**ERROR: Failed to get primary parcel for ref Address " + refAddress + " , " + primaryParcelResult.getErrorMessage());
 		return false;
 	}
+
 	var capParModel = aa.parcel.warpCapIdParcelModel2CapParcelModel(itemCap, primaryParcel).getOutput()
+
 		var createPMResult = aa.parcel.createCapParcel(capParModel);
 	if (createPMResult.getSuccess())
 		logDebug("created CAP Parcel");
 	else {
 		logDebug("**WARNING: Failed to create the cap Parcel " + createPMResult.getErrorMessage());
 	}
+
 	// Now the owners
 	//
+
 	var parcelListResult = aa.parcel.getParcelDailyByCapID(itemCap, null);
 	if (parcelListResult.getSuccess())
 		var parcelList = parcelListResult.getOutput();
@@ -927,6 +1753,7 @@ function addParcelAndOwnerFromRefAddress(refAddress) // optional capID
 		logDebug("**ERROR: Failed to get Parcel List " + parcelListResult.getErrorMessage());
 		return false;
 	}
+
 	for (var thisP in parcelList) {
 		var ownerListResult = aa.owner.getOwnersByParcel(parcelList[thisP]);
 		if (ownerListResult.getSuccess())
@@ -935,9 +1762,11 @@ function addParcelAndOwnerFromRefAddress(refAddress) // optional capID
 			logDebug("**ERROR: Failed to get Owner List " + ownerListResult.getErrorMessage());
 			return false;
 		}
+
 		for (var thisO in ownerList) {
 			ownerList[thisO].setCapID(itemCap);
 			createOResult = aa.owner.createCapOwnerWithAPOAttribute(ownerList[thisO]);
+
 			if (createOResult.getSuccess())
 				logDebug("Created CAP Owner");
 			else {
@@ -947,132 +1776,218 @@ function addParcelAndOwnerFromRefAddress(refAddress) // optional capID
 	}
 }
  
- 
-function addParcelCondition(parcelNum, cType,cStatus,cDesc,cComment,cImpact)
-//if parcelNum is null, condition is added to all parcels on CAP
-	{
-	if (!parcelNum)
-		{
-		var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
-		if (capParcelResult.getSuccess())
-			{
+// @ts-check
+
+/**
+ * Adds a condition to the REFERENCE parcel whose number is parcelNum. If a standard condition is associated
+ * with an ASI group (condition template), the method adds the condition with the template fields and tables.
+ * You can call the method to add duplicate conditions to a record.
+ * @param {string} parcelNum Parcel number to add the condition to. If null, the function adds the condition to all parcels on the record.
+ * @param {string} cType Condition type.
+ * @param {string} cStatus Condition status.
+ * @param {string} cDesc Condition name.
+ * @param {string} cComment Condition comment.
+ * @param {string} cImpact Condition severity.
+ * 
+ * **Notes**
+ * The condition Type, Condition (description), Status, Severity and Comment corresponds to cType,
+ * cDesc, cStatus, cImpact, and cComment, respectively. The condition Apply and Effective dates equal the
+ * current date. The condition Applied By and Action By staff names equal the current user name.
+ * If you use null for the parcelNum parameter, the function adds the condition to all parcels on the current
+ * record.
+ * 
+ * ---
+ * **Global Variable**:
+ * - capId
+ * - systemUserObj
+ * - sysDate
+ * 
+ * ---
+ */
+
+function addParcelCondition(parcelNum, cType, cStatus, cDesc, cComment, cImpact) {
+
+	var l_sysDate = (typeof sysDate == "undefined") ? aa.date.getCurrentDate() : sysDate;
+	var l_systemUserObj;
+	if (typeof systemUserObj == "undefined") {
+		var l_currentUserID = (aa.env.getValue("CurrentUserID") == "") ? "" : "" + aa.env.getValue("CurrentUserID");
+		l_systemUserObj = aa.person.getUser(l_currentUserID).getOutput();
+	} else {
+		l_systemUserObj = systemUserObj;
+	}
+
+	//if parcelNum is null, condition is added to all parcels on CAP
+	if (!parcelNum) {
+		if (typeof capId === typeof undefined || capId == null) {
+			logDebug("'addParcelCondition' parameter 'parcelNum' and global variable 'capId' are not defined.");
+			return false;
+		}
+		var capParcelResult = aa.parcel.getParcelandAttribute(capId, null);
+		if (capParcelResult.getSuccess()) {
 			var Parcels = capParcelResult.getOutput().toArray();
-			for (zz in Parcels)
-				{
+			for (var zz in Parcels) {
 				logDebug("Adding Condition to parcel #" + zz + " = " + Parcels[zz].getParcelNumber());
-				var addParcelCondResult = aa.parcelCondition.addParcelCondition(Parcels[zz].getParcelNumber(), cType, cDesc, cComment, null, null, cImpact, cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj); 
-					if (addParcelCondResult.getSuccess())
-					        	{
-						logMessage("Successfully added condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + ") " + cDesc);
-						logDebug("Successfully added condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + ") " + cDesc);
-						}
-					else
-						{
-						logDebug( "**ERROR: adding condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + "): " + addParcelCondResult.getErrorMessage());
-						}
+				var addParcelCondResult = aa.parcelCondition.addParcelCondition(Parcels[zz].getParcelNumber(), cType, cDesc, cComment, null, null, cImpact, cStatus, l_sysDate, null, l_sysDate, l_sysDate, l_systemUserObj, l_systemUserObj);
+				if (addParcelCondResult.getSuccess()) {
+					logMessage("Successfully added condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + ") " + cDesc);
+					logDebug("Successfully added condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + ") " + cDesc);
+				} else {
+					logDebug("**ERROR: adding condition to Parcel " + Parcels[zz].getParcelNumber() + "  (" + cImpact + "): " + addParcelCondResult.getErrorMessage());
 				}
 			}
 		}
-	else
-		{
-			var addParcelCondResult = aa.parcelCondition.addParcelCondition(parcelNum, cType, cDesc, cComment, null, null, cImpact, cStatus, sysDate, null, sysDate, sysDate, systemUserObj, systemUserObj); 
-	
-		        if (addParcelCondResult.getSuccess())
-		        	{
-				logMessage("Successfully added condition to Parcel " + parcelNum + "  (" + cImpact + ") " + cDesc);
-				logDebug("Successfully added condition to Parcel " + parcelNum + "  (" + cImpact + ") " + cDesc);
-				}
-			else
-				{
-			logDebug( "**ERROR: adding condition to Parcel " + parcelNum + "  (" + cImpact + "): " + addParcelCondResult.getErrorMessage());
-				}
+	} else {
+		parcelNum = new java.lang.String("" + parcelNum);
+		var addParcelCondResult = aa.parcelCondition.addParcelCondition(parcelNum, cType, cDesc, cComment, null, null, cImpact, cStatus, l_sysDate, null, l_sysDate, l_sysDate, l_systemUserObj, l_systemUserObj);
+
+		if (addParcelCondResult.getSuccess()) {
+			logMessage("Successfully added condition to Parcel " + parcelNum + "  (" + cImpact + ") " + cDesc);
+			logDebug("Successfully added condition to Parcel " + parcelNum + "  (" + cImpact + ") " + cDesc);
+		} else {
+			logDebug("**ERROR: adding condition to Parcel " + parcelNum + "  (" + cImpact + "): " + addParcelCondResult.getErrorMessage());
 		}
 	}
+}
  
- 
-function addParcelDistrict(parcelNum, districtValue)
-//if parcelNum is null, district is is added to all parcels on CAP
-	{
-	if (!parcelNum)
-		{
-		var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
-		if (capParcelResult.getSuccess())
-			{
+// @ts-check
+
+/**
+ * Adds a district to the parcel on a record.
+ * @param {string} parcelNum Parcel number that district adds to.
+ * @param {string} districtValue Value of district entry to add.
+ * @returns {boolean | undefined} FALSE if any single failure during an add, otherwise, returns nothing
+ *  * ---
+ * **Notes**
+ * Does not edit reference parcel data.
+ * If parcelNum is null, the function adds the district to all parcels on the current record.
+ * 
+ * ---
+ * **Global Variable**:
+ * - capId
+ * 
+ * ---
+ */
+
+function addParcelDistrict(parcelNum, districtValue) {
+	//if parcelNum is null, district is is added to all parcels on CAP
+
+
+	if (typeof capId === typeof undefined) {
+		logDebug("'addParcelDistrict' global 'capId' must be defined.");
+		return false;
+	}
+	if (!parcelNum) {
+		var capParcelResult = aa.parcel.getParcelandAttribute(capId, null);
+		if (capParcelResult.getSuccess()) {
 			var Parcels = capParcelResult.getOutput().toArray();
-			for (zz in Parcels)
-				{
-				apdResult = aa.parcel.addParceDistrictForDaily(capId.getID1(),capId.getID2(),capId.getID3(),Parcels[zz].getParcelNumber(),districtValue);
-				
-				if (!apdResult.getSuccess())
-					{ logDebug("**ERROR Adding District " + districtValue + " to parcel #" + Parcels[zz].getParcelNumber() + " : " + apdResult.getErrorMessage()) ; return false ; }
-				else
+			for (var zz in Parcels) {
+				var apdResult = aa.parcel.addParceDistrictForDaily(capId.getID1(), capId.getID2(), capId.getID3(), Parcels[zz].getParcelNumber(), districtValue);
+
+				if (!apdResult.getSuccess()) {
+					logDebug("**ERROR Adding District " + districtValue + " to parcel #" + Parcels[zz].getParcelNumber() + " : " + apdResult.getErrorMessage());
+					return false;
+				} else {
 					logDebug("Successfully added district " + districtValue + " to parcel #" + Parcels[zz].getParcelNumber());
 				}
 			}
 		}
-	else
-		{
-		apdResult = aa.parcel.addParceDistrictForDaily(capId.getID1(),capId.getID2(),capId.getID3(),parcelNum,districtValue);
-		if (!apdResult.getSuccess())
-			{ logDebug("**ERROR Adding District " + districtValue + " to parcel #" + parcelNum + " : " + apdResult.getErrorMessage()) ; return false ; }
-		else
+	} else {
+		apdResult = aa.parcel.addParceDistrictForDaily(capId.getID1(), capId.getID2(), capId.getID3(), parcelNum, districtValue);
+
+		if (!apdResult.getSuccess()) {
+			logDebug("**ERROR Adding District " + districtValue + " to parcel #" + parcelNum + " : " + apdResult.getErrorMessage());
+			return false;
+		} else {
 			logDebug("Successfully added district " + districtValue + " to parcel #" + parcelNum);
 		}
 	}
+}
  
- 
-function addParent(parentAppNum)
-//
-// adds the current application to the parent
-//
-	{
-	if (parentAppNum.getID1 == undefined)  // is this one an object or string?
-		{
+// @ts-check
+
+/**
+ * Adds the current record as a hierarchal child to the parent record parentAppNum.
+ * @param {string} parentAppNum 
+ * @returns {boolean | undefined} FALSE in some error conditions, otherwise, nothing
+ */
+
+function addParent(parentAppNum) {
+	if (parentAppNum.getID1 == undefined) {
+		// is this one an object or string?
 		var getCapResult = aa.cap.getCapID(parentAppNum);
-		if (getCapResult.getSuccess())
-			{
+		if (getCapResult.getSuccess()) {
 			var parentId = getCapResult.getOutput();
-			}
-		else
-			{ logDebug( "**ERROR: getting parent cap id (" + parentAppNum + "): " + getCapResult.getErrorMessage());
-				return false;}
 		}
-	else
-		{
+		else {
+			logDebug("**ERROR: getting parent cap id (" + parentAppNum + "): " + getCapResult.getErrorMessage());
+			return false;
+		}
+	} else {
 		parentId = parentAppNum;
-		}
-	var linkResult = aa.cap.createAppHierarchy(parentId, capId);
-	if (linkResult.getSuccess())
-		logDebug("Successfully linked to Parent Application : " + parentAppNum);
-	else
-		logDebug( "**ERROR: linking to parent application parent cap id (" + parentAppNum + "): " + linkResult.getErrorMessage());
 	}
+
+	if (typeof capId === typeof undefined) {
+		logDebug("'addParent' requires global 'capId' be defined.");
+		return false;
+	} 
+
+	var linkResult = aa.cap.createAppHierarchy(parentId, capId);
+	if (linkResult.getSuccess()) {
+		logDebug("Successfully linked to Parent Application : " + parentAppNum);
+	} else {
+		logDebug("**ERROR: linking to parent application parent cap id (" + parentAppNum + "): " + linkResult.getErrorMessage());
+	}
+
+}
+
  
- 
-function addPublicUserLPsToRecord(itemCapId,publicUser)
-	{
+/**
+ * AA User ID for a Public User (ex. PUBLICUSER0011) is used to match Public User.
+ * Ref LPs associated with that PU are then matched.
+ * For each of the matched Ref LPs, an attempt is made to add the Ref LP to the Record.
+ * @param {object} itemCapId CapID
+ * @param {string} publicUser AA User ID for the Public User
+ * @returns {boolean} If there were issues 'false'. If any Ref LPs were attached then 'true'.
+ */
+function addPublicUserLPsToRecord(itemCapId, publicUser) {
+	if (typeof itemCapId == "undefined" || itemCapId == null || (typeof itemCapId.getCustomID == "undefined")) {
+		logDebug("'addPublicUserLPsToRecord' requires a CapID for parameter 'itemCapId'");
+		return false;
+	}
+	if (typeof publicUser == "undefined" || publicUser == null || publicUser == "") {
+		logDebug("'addPublicUserLPsToRecord' requires a Public User's User ID for parameter 'publicUser'");
+		return false;
+	}
 	var publicUserModelResult = aa.publicUser.getPublicUserByPUser(publicUser);
-	if (!publicUserModelResult.getSuccess() || !publicUserModelResult.getOutput())  {
-		logDebug("**WARNING** couldn't find public user " + publicUser + " " + publicUserModelResult.getErrorMessage()); return false; }
+	if (!publicUserModelResult.getSuccess() || !publicUserModelResult.getOutput()) {
+		logDebug("**WARNING** couldn't find public user " + publicUser + " " + publicUserModelResult.getErrorMessage());
+		return false;
+	}
 	var userSeqNum = publicUserModelResult.getOutput().getUserSeqNum();
 	var associatedLPResult = aa.licenseScript.getRefLicProfByOnlineUser(userSeqNum);
-	if (!associatedLPResult.getSuccess() || !associatedLPResult.getOutput())  {
-		logDebug("**WARNING** no associated LPs to publuc user " + publicUser + " " + associatedLPResult.getErrorMessage()); return false; }
-	var associatedLPs = associatedLPResult.getOutput();
-	for (var x in associatedLPs)
-		{
-		var lp = associatedLPs[x];
-		var attachResult = aa.licenseScript.associateLpWithCap(capId,lp)
-		if (!attachResult.getSuccess())  {
-			logDebug("**WARNING** failed to associate LP " + lp.getStateLicense + " to Record " + attachResult.getErrorMessage()); }
-		else
-			logDebug("Associated LP " + lp.getStateLicense() + " to Record " + itemCapId.getCustomID())
-		}
-
+	if (!associatedLPResult.getSuccess() || !associatedLPResult.getOutput()) {
+		logDebug("**WARNING** no associated LPs to publuc user " + publicUser + " " + associatedLPResult.getErrorMessage());
+		return false;
 	}
-
-
- 
+	var associatedLPs = associatedLPResult.getOutput();
+	if (associatedLPs.length <= 0) {
+		logDebug("**WARNING** no associated LPs to publuc user " + publicUser + " " + associatedLPResult.getErrorMessage());
+		return false;
+	}
+	// TODO - may be more-than-one. Track success/failure and return an object describing outcome more fully.
+	var failedAttempts = 0;
+	for (var x in associatedLPs) {
+		var lp = associatedLPs[x];
+		var attachResult = aa.licenseScript.associateLpWithCap(itemCapId, lp);
+		if (!attachResult.getSuccess()) {
+			logDebug("**WARNING** failed to associate LP " + lp.getStateLicense() + " to Record " + attachResult.getErrorMessage());
+			failedAttempts++
+		} else {
+			logDebug("Associated LP " + lp.getStateLicense() + " to Record " + itemCapId.getCustomID());
+		}
+	}
+	return (associatedLPs.length > failedAttempts);
+}
  
 function addrAddCondition(pAddrNum, pType, pStatus, pDesc, pComment, pImpact, pAllowDup)
 	{
@@ -1207,65 +2122,74 @@ function addrAddCondition(pAddrNum, pType, pStatus, pDesc, pComment, pImpact, pA
 		}
 	return condAdded;
 	}
+
  
- 
-function addReferenceContactByName(vFirst, vMiddle, vLast)
-{
+//@ts-check
+
+/**
+ * Adds a reference contact to the current record, based on the name of the contact. The function only adds
+ * the first matching contact
+ * 
+ * ----
+ * **Env. Variables:**
+ * - capId
+ * ----
+ * @param {string} vFirst First name of reference contact.
+ * @param {string} vMiddle Middle name of reference contact.
+ * @param {string} vLast Last name of reference contact.
+ * @returns {boolean | number} Returns the added contact sequence number if it was added, false if not.
+ */
+function addReferenceContactByName(vFirst, vMiddle, vLast) {
+	if (typeof capId === typeof undefined) {
+		logDebug("'addReferenceContactByName' Error: required global variable 'capId' is undefined.");
+		return false;
+	}
 	var userFirst = vFirst;
 	var userMiddle = vMiddle;
 	var userLast = vLast;
 	//Find PeopleModel object for user
 	var peopleResult = aa.people.getPeopleByFMLName(userFirst, userMiddle, userLast);
-	if (peopleResult.getSuccess())
-		{
+	if (peopleResult.getSuccess()) {
 		var peopleObj = peopleResult.getOutput();
-		//logDebug("peopleObj is "+peopleObj.getClass());
-		if (peopleObj==null)
-			{
-			logDebug("No reference user found.");
-			return false;
-			}
-		logDebug("No. of reference contacts found: "+peopleObj.length);
-		}
-	else
-		{
-			logDebug("**ERROR: Failed to get reference contact record: " + peopleResult.getErrorMessage());
+		if (peopleObj == null) {
+			logDebug("No reference user found for: " + userFirst + " " + userMiddle + " " + userLast);
 			return false;
 		}
+		logDebug("No. of reference contacts found: " + peopleObj.length);
+	} else {
+		logDebug("**ERROR: Failed to get reference contact record: " + peopleResult.getErrorMessage());
+		return false;
+	}
+
 	//Add the reference contact record to the current CAP
 	var contactAddResult = aa.people.createCapContactWithRefPeopleModel(capId, peopleObj[0]);
-	if (contactAddResult.getSuccess())
-		{
+	if (contactAddResult.getSuccess()) {
 		logDebug("Contact successfully added to CAP.");
 		var capContactResult = aa.people.getCapContactByCapID(capId);
-		if (capContactResult.getSuccess())
-			{
-			var Contacts = capContactResult.getOutput();
-			var idx = Contacts.length;
-			var contactNbr = Contacts[idx-1].getCapContactModel().getPeople().getContactSeqNumber();
-			logDebug ("Contact Nbr = "+contactNbr);
+		if (capContactResult.getSuccess()) {
+			var contacts = capContactResult.getOutput();
+			var last = contacts.length - 1;
+			var contactNbr = contacts[last].getCapContactModel().getPeople().getContactSeqNumber();
+			logDebug("Contact Nbr = " + contactNbr);
 			return contactNbr;
-			}
-		else
-			{
-			logDebug("**ERROR: Failed to get Contact Nbr: "+capContactResult.getErrorMessage());
-			return false;
-			}
-		}
-	else
-		{
-			logDebug("**ERROR: Cannot add contact: " + contactAddResult.getErrorMessage());
+		} else {
+			logDebug("**ERROR: Failed to get Contact Nbr: " + capContactResult.getErrorMessage());
 			return false;
 		}
+	} else {
+		logDebug("**ERROR: Cannot add contact: " + contactAddResult.getErrorMessage());
+		return false;
+	}
 }
- 
  
 function addressExistsOnCap() {
 	// Optional parameter, cap ID to load from
 	//
+
 	var itemCap = capId;
 	if (arguments.length == 1)
 		itemCap = arguments[0]; // use cap ID specified in args
+
 	var fcapAddressObj = null;
 	var capAddResult = aa.address.getAddressByCapId(itemCap);
 	if (capAddResult.getSuccess())
@@ -1274,15 +2198,17 @@ function addressExistsOnCap() {
 		logDebug("**ERROR: Failed to get Address object: " + capAddResult.getErrorType() + ":" + capAddResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in fcapAddressObj) {
 		return true;
 	}
+
 	return false;
 }
  
- 
 function addStdCondition(cType, cDesc, vCapId, exactMatch) // optional cap ID
 {
+
 	var itemCap = capId;
 	var addCapCondResult;
 	if (!matches(vCapId,undefined,null,"")) itemCap = vCapId;
@@ -1293,16 +2219,22 @@ function addStdCondition(cType, cDesc, vCapId, exactMatch) // optional cap ID
 	} else {
 		standardConditions = aa.capCondition.getStandardConditions(cType, cDesc).getOutput();
 		for (i = 0; i < standardConditions.length; i++)
+
 			if(!exactMatch){
+
 				standardCondition = standardConditions[i];
+
 				addCapCondResult = aa.capCondition.addCapCondition(itemCap, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), sysDate, null, sysDate, null, null, standardCondition.getImpactCode(), systemUserObj, systemUserObj, "Applied", currentUserID, "A", null, standardCondition.getDisplayConditionNotice(), standardCondition.getIncludeInConditionName(), standardCondition.getIncludeInShortDescription(), standardCondition.getInheritable(), standardCondition.getLongDescripton(), standardCondition.getPublicDisplayMessage(), standardCondition.getResolutionAction(), null, null, standardCondition.getConditionNbr(), standardCondition.getConditionGroup(), standardCondition.getDisplayNoticeOnACA(), standardCondition.getDisplayNoticeOnACAFee(), standardCondition.getPriority(), standardCondition.getConditionOfApproval());
 				
 			}
 			if (exactMatch && (standardConditions[i].getConditionType().toUpperCase() == cType.toUpperCase() && standardConditions[i].getConditionDesc().toUpperCase() == cDesc.toUpperCase())) //EMSE Dom function does like search, needed for exact match
 			{
 				standardCondition = standardConditions[i];
+
 				addCapCondResult = aa.capCondition.addCapCondition(itemCap, standardCondition.getConditionType(), standardCondition.getConditionDesc(), standardCondition.getConditionComment(), sysDate, null, sysDate, null, null, standardCondition.getImpactCode(), systemUserObj, systemUserObj, "Applied", currentUserID, "A", null, standardCondition.getDisplayConditionNotice(), standardCondition.getIncludeInConditionName(), standardCondition.getIncludeInShortDescription(), standardCondition.getInheritable(), standardCondition.getLongDescripton(), standardCondition.getPublicDisplayMessage(), standardCondition.getResolutionAction(), null, null, standardCondition.getConditionNbr(), standardCondition.getConditionGroup(), standardCondition.getDisplayNoticeOnACA(), standardCondition.getDisplayNoticeOnACAFee(), standardCondition.getPriority(), standardCondition.getConditionOfApproval());
+
 			}
+
 			if (addCapCondResult && addCapCondResult.getSuccess()) {
 				logDebug("Successfully added condition (" + standardCondition.getConditionDesc() + ")");
 			} else {
@@ -1312,19 +2244,23 @@ function addStdCondition(cType, cDesc, vCapId, exactMatch) // optional cap ID
 	}
 }
  
- 
 function addTask(sourceTaskName, newTaskName, insertTaskType) {
+
 	// insertTaskType needs to be "N" or "P" for "Next" or "Parallel"
+
 	var itemCap = capId;
 	if (arguments.length > 3)
 		itemCap = arguments[3]; // use cap ID specified in args
+
 
 	if (!insertTaskType.toUpperCase().equals("P") && !insertTaskType.toUpperCase().equals("N")) {
 		logDebug("WARNING: Insert Task Type must be P or N");
 		return false;
 	}
+
 	var sTask;
 	var tTask;
+
 	//get the task by the task path
 	var taskResult1 = aa.workflow.getTask(itemCap, sourceTaskName);
 	if (taskResult1.getSuccess()) {
@@ -1333,13 +2269,16 @@ function addTask(sourceTaskName, newTaskName, insertTaskType) {
 		logDebug("WARNING: Failed to get task! Path = " + sourceTaskName + ";" + taskResult1.getErrorMessage());
 		return false;
 	}
+
 	//change the task name
 	tTask.setTaskDescription(newTaskName);
+
 	var taskResult = aa.workflow.insertTask(tTask, insertTaskType);
 	if (taskResult.getSuccess()) {
 		var processId = tTask.getProcessID();
 		var stepNum = tTask.getStepNumber();
 		var taskResult1 = aa.workflow.getTask(itemCap, stepNum, processId);
+
 		if (taskResult1.getSuccess()) {
 			tTask = taskResult1.getOutput();
 			logDebug("add task successful : inserted task name = " + tTask.getTaskDescription() + "; Process name = " + tTask.getProcessCode());
@@ -1347,21 +2286,29 @@ function addTask(sourceTaskName, newTaskName, insertTaskType) {
 			logDebug("WARNING: Failed to get task! Path = " + taskPath + ";" + taskResult1.getErrorMessage());
 			return false;
 		}
+
 	} else {
 		logDebug("WARNING: Failed to add task! Path = " + taskPath + ";" + taskResult.getErrorMessage());
 		return false;
 	}
+
 	return tTask; // returns task item
 } 
- 
+
 function addTimeAccountingRecord(taskUser, taGroup, taType, dateLogged, hoursSpent, itemCap, billableBool) {
+
     if (!aa.timeAccounting.getTimeTypeByTimeTypeName) {
 		logDebug("addTimeAccountingRecordToWorkflow function required AA 7.1SP3 or higher."); return false }
+
     userRight = aa.userright.getUserRight(appTypeArray[0], taskUser).getOutput();
+
     TimeAccountingResult = aa.timeAccounting.getTimeLogModel();
+
     if (TimeAccountingResult.getSuccess());
     TimeAccounting = TimeAccountingResult.getOutput();
+
     var billable = "N";  if (billableBool) billable = "Y";
+
     TimeAccounting.setAccessModel("N");
     TimeAccounting.setBillable(billable);
     TimeAccounting.setCreatedBy(taskUser);
@@ -1383,32 +2330,40 @@ function addTimeAccountingRecord(taskUser, taGroup, taType, dateLogged, hoursSpe
         TimeAccounting.setReference(itemCap);
     else
         TimeAccounting.setReference("N/A");
+
     TimeAccounting.setStartTime(null);
     TimeAccounting.setTotalMinutes(60 * hoursSpent);
+
     var timeElapsedString = "";
     if (hoursSpent.indexOf(".") != -1) {
         var vMinutes = "";
         vMinutes = hoursSpent.substr(hoursSpent.indexOf(".")) * 60;
         vMinutes = vMinutes.toString();
         if (vMinutes.length == 1) vMinutes = "0" + vMinutes;
+
         timeElapsedString = dateLogged + " " + hoursSpent.substr(0, hoursSpent.indexOf(".")) + ":" + vMinutes + ":00";
     }
     else
     { timeElapsedString = dateLogged + " " + hoursSpent + ":00:00"; }
+
 	var taTypeResult = aa.timeAccounting.getTimeTypeByTimeTypeName(taType);
     if (!taTypeResult.getSuccess() || !taTypeResult.getOutput()) {
             	logDebug("**WARNING: error retrieving Timeaccounting type : " + taType + " : " + taTypeResult.getErrorMessage()); return false;   }
             	
+
     var taGroupResult = aa.timeAccounting.getTimeGroupByTimeGroupName(taGroup);
     if (!taGroupResult.getSuccess() || !taGroupResult.getOutput()) {
             	logDebug("**WARNING: error retrieving Timeaccounting group : " + taGroup + " : " + taGroupResult.getErrorMessage()); return false;   }
+
 	
     TimeAccounting.setTimeElapsed(aa.date.parseDate(timeElapsedString));
 	TimeAccounting.setTimeGroupSeq(taGroupResult.getOutput().getTimeGroupSeq());
     TimeAccounting.setTimeTypeSeq(taTypeResult.getOutput().getTimeTypeSeq());
 	TimeAccounting.setUserGroupSeqNbr(userRight.getGroupSeqNumber()); //Required -- User Group Number from user rights
     TimeAccounting.setVehicleId(null);
+
     addResult = aa.timeAccounting.addTimeLogModel(TimeAccounting);
+
     if (addResult.getSuccess()) {
         logDebug("Successfully added Time Accounting Record.");
     }
@@ -1417,16 +2372,20 @@ function addTimeAccountingRecord(taskUser, taGroup, taType, dateLogged, hoursSpe
     }
 }
  
- 
+
 function addTimeAccountingRecordToWorkflow(taskUser, taGroup, taType, dateLogged, hoursSpent, itemCap, taskName, processName, billableBool)
     {
     
     if (!aa.timeAccounting.getTimeTypeByTimeTypeName) {
 		logDebug("addTimeAccountingRecordToWorkflow function required AA 7.1SP3 or higher."); return false }
+
     userRight = aa.userright.getUserRight(appTypeArray[0], taskUser).getOutput();
+
     TimeAccountingResult = aa.timeAccounting.getTimeLogModel();
+
     if (TimeAccountingResult.getSuccess());
     TimeAccounting = TimeAccountingResult.getOutput();
+
     var billable = "N";  if (billableBool) billable = "Y";
     
     TimeAccounting.setAccessModel("N");
@@ -1449,12 +2408,14 @@ function addTimeAccountingRecordToWorkflow(taskUser, taGroup, taType, dateLogged
     TimeAccounting.setReference(itemCap);
     TimeAccounting.setStartTime(null);
     TimeAccounting.setTotalMinutes(60 * hoursSpent);
+
     var timeElapsedString = "";
     if (hoursSpent.indexOf(".") != -1) {
         var vMinutes = "";
         vMinutes = hoursSpent.substr(hoursSpent.indexOf(".")) * 60;
         vMinutes = vMinutes.toString();
         if (vMinutes.length == 1) vMinutes = "0" + vMinutes;
+
         timeElapsedString = dateLogged + " " + hoursSpent.substr(0, hoursSpent.indexOf(".")) + ":" + vMinutes + ":00";
     }
     else
@@ -1465,15 +2426,18 @@ function addTimeAccountingRecordToWorkflow(taskUser, taGroup, taType, dateLogged
     if (!taTypeResult.getSuccess() || !taTypeResult.getOutput()) {
             	logDebug("**WARNING: error retrieving Timeaccounting type : " + taType + " : " + taTypeResult.getErrorMessage()); return false;   }
             	
+
     var taGroupResult = aa.timeAccounting.getTimeGroupByTimeGroupName(taGroup);
     if (!taGroupResult.getSuccess() || !taGroupResult.getOutput()) {
             	logDebug("**WARNING: error retrieving Timeaccounting group : " + taGroup + " : " + taGroupResult.getErrorMessage()); return false;   }
+
     TimeAccounting.setTimeElapsed(aa.date.parseDate(timeElapsedString));
     TimeAccounting.setTimeGroupSeq(taGroupResult.getOutput().getTimeGroupSeq());
     TimeAccounting.setTimeTypeSeq(taTypeResult.getOutput().getTimeTypeSeq());
     
     TimeAccounting.setUserGroupSeqNbr(userRight.getGroupSeqNumber()); //Required -- User Group Number from user rights
     TimeAccounting.setVehicleId(null);
+
     // find the task
     
     var capTasks = loadTasks(itemCap);
@@ -1487,6 +2451,7 @@ function addTimeAccountingRecordToWorkflow(taskUser, taGroup, taType, dateLogged
 		TimeLogModel.setEntityType("WORKFLOW");
     		TimeLogModel.setCapIDModel(itemCap);
     		}		
+
     if (TimeLogModel)
 	{
 	addResult = aa.timeAccounting.addTimeLogModel(TimeAccounting);
@@ -1504,42 +2469,85 @@ function addTimeAccountingRecordToWorkflow(taskUser, taGroup, taType, dateLogged
     	    logDebug("**WARNING: error adding Time Accounting Record: task " + taskName + ", process " + processName + " not found.");
     	}
 } 
- 
-function addToASITable(tableName, tableValues) // optional capId
-{
-    //  tableName is the name of the ASI table
-    //  tableValues is an associative array of values.  All elements must be either a string or asiTableVal object
-    var itemCap = capId;
-    if (arguments.length > 2)
-        itemCap = arguments[2]; // use cap ID specified in args
+//@ts-check
+/**
+ * Adds one row of values (tableValues) to the application specific info (ASI) table called tableName.
+ * The tableValues parameter must be an associative array of string values, where each element name 
+ * is a column name in the ASI table tableName, and the element stores the column value. 
+ * If you use the capID parameter, the function adds tableValues to tableName in the record whose record ID object is capID.
+ * The parameter tableValues does not have to contain all the columns in the ASI table tableName. Blank values
+ * will be set for any missing column.
+ * The ASI table tableName must already exist on the record.
+ * The Table Name passed should be a sub-group on 
+ * the group (Custom List Group Code) associated with the Record Type's ASI.
+ * @param {string} tableName ASI Table Name 
+ * @param {object[]} tableValues Array of associative array values. All elements MUST be either a string or asiTableVal object
+ * @param {object=} itemCap Optional - Cap ID object is 3rd parm. If not supplied then global 'capId' is used  
+ * @returns {boolean} FALSE if failure, TRUE if update performed without issue
+ */
+function addToASITable(tableName, tableValues) {
+
+    if (typeof tableName === typeof undefined || tableName == null || tableName == "") {
+        logDebug("'addToASITable' - tableName parameter is undefined, null, or an empty string.");
+        return false;
+    }
+
+    if (typeof tableValues === typeof undefined || tableValues == null) {
+        logDebug("'addToASITable' - tableValues parameter is undefined or null");
+        return false;
+    }
+
+    var itemCap;
+    if (arguments.length > 2) {
+        // use cap ID specified in args
+        itemCap = arguments[2]; 
+    } else {
+        if (typeof capId != "undefined") {
+            itemCap = capId;
+        }
+    }
+	if (!itemCap || (typeof itemCap.getCustomID == "undefined")) {
+		logDebug("'addToASITable' requires CapID either in global variable 'capId' or passed as parameter at index 2");
+        return false;
+	}
+
     var tssmResult = aa.appSpecificTableScript.getAppSpecificTableModel(itemCap, tableName);
+
     if (!tssmResult.getSuccess()) {
         logDebug("**WARNING: error retrieving app specific table " + tableName + " " + tssmResult.getErrorMessage());
         return false;
     }
+
     var tssm = tssmResult.getOutput();
     var tsm = tssm.getAppSpecificTableModel();
     var fld = tsm.getTableField();
     var col = tsm.getColumns();
     var fld_readonly = tsm.getReadonlyField(); //get ReadOnly property
     var coli = col.iterator();
+
     while (coli.hasNext()) {
         var colname = coli.next();
+
         if (!tableValues[colname.getColumnName()]) {
             logDebug("addToASITable: null or undefined value supplied for column " + colname.getColumnName() + ", setting to empty string");
             tableValues[colname.getColumnName()] = "";
         }
+
         if (typeof (tableValues[colname.getColumnName()].fieldValue) != "undefined") {
+            aa.print("WILL ADD THIS >> " + colname.getColumnName() + "   " + tableValues[colname.getColumnName()].fieldValue);
             fld.add(tableValues[colname.getColumnName()].fieldValue);
             fld_readonly.add(tableValues[colname.getColumnName()].readOnly);
-        } else // we are passed a string
-        {
+        } else {
+            // we are passed a string
+            aa.print("WILL ADD THIS .. " + colname.getColumnName() + "   " + tableValues[colname.getColumnName()]);
             fld.add(tableValues[colname.getColumnName()]);
             fld_readonly.add(null);
         }
     }
+
     tsm.setTableField(fld);
     tsm.setReadonlyField(fld_readonly); // set readonly field
+
     var addResult = aa.appSpecificTableScript.editAppSpecificTableInfos(tsm, itemCap, currentUserID);
     if (!addResult.getSuccess()) {
         logDebug("**WARNING: error adding record to ASI Table:  " + tableName + " " + addResult.getErrorMessage());
@@ -1547,14 +2555,15 @@ function addToASITable(tableName, tableValues) // optional capId
     } else {
         logDebug("Successfully added record to ASI Table: " + tableName);
     }
+    return true;
 }
- 
  
 function allTasksComplete(stask) // optional tasks to ignore... for Sacramento
 	{
 	var ignoreArray = new Array();
 	for (var i=1; i<arguments.length;i++) 
 		ignoreArray.push(arguments[i])
+
 	// returns true if any of the subtasks are active
 	var taskResult = aa.workflow.getTasks(capId);
 	if (taskResult.getSuccess())
@@ -1567,7 +2576,7 @@ function allTasksComplete(stask) // optional tasks to ignore... for Sacramento
 			return false;
 	return true;
 	}
- 
+
  
 function appHasCondition(pType,pStatus,pDesc,pImpact)
 	{
@@ -1614,67 +2623,93 @@ function appHasCondition(pType,pStatus,pDesc,pImpact)
 	} //function
 	
  
- 
+
 
 function applyPayments() {
 	var payResult = aa.finance.getPaymentByCapID(capId, null)
+
 		if (!payResult.getSuccess()) {
 			logDebug("**ERROR: error retrieving payments " + payResult.getErrorMessage());
 			return false
 		}
+
 		var payments = payResult.getOutput();
+
 	for (var paynum in payments) {
 		var payment = payments[paynum];
 		payment.setPaymentDate(aa.date.getCurrentDate());
+
 		var payBalance = payment.getAmountNotAllocated();
 		var payStatus = payment.getPaymentStatus();
+
 		if (payBalance <= 0)
 			continue; // nothing to allocate
+
 		if (payStatus != "Paid")
 			continue; // not in paid status
+
 		var feeResult = aa.finance.getFeeItemByCapID(capId);
+
 		if (!feeResult.getSuccess()) {
 			logDebug("**ERROR: error retrieving fee items " + feeResult.getErrorMessage());
 			return false
 		}
+
 		var feeArray = feeResult.getOutput();
+
 		for (var feeNumber in feeArray) {
+
 			var feeItem = feeArray[feeNumber];
 			var amtPaid = 0;
 			var pfResult = aa.finance.getPaymentFeeItems(capId, null);
+
 			if (feeItem.getFeeitemStatus() != "INVOICED")
 				continue; // only apply to invoiced fees
+
 			if (!pfResult.getSuccess()) {
 				logDebug("**ERROR: error retrieving fee payment items items " + pfResult.getErrorMessage());
 				return false
 			}
+
 			var pfObj = pfResult.getOutput();
+
 			for (ij in pfObj)
 				if (feeItem.getFeeSeqNbr() == pfObj[ij].getFeeSeqNbr())
 					amtPaid += pfObj[ij].getFeeAllocation()
+
 					var feeBalance = feeItem.getFee() - amtPaid;
+
 			if (feeBalance <= 0)
 				continue; // this fee has no balance
+
 			var fseqlist = new Array();
 			var finvlist = new Array();
 			var fpaylist = new Array();
+
 			var invoiceResult = aa.finance.getFeeItemInvoiceByFeeNbr(capId, feeItem.getFeeSeqNbr(), null);
+
 			if (!invoiceResult.getSuccess()) {
 				logDebug("**ERROR: error retrieving invoice items " + invoiceResult.getErrorMessage());
 				return false
 			}
+
 			var invoiceItem = invoiceResult.getOutput();
+
 			// Should return only one invoice number per fee item
+
 			if (invoiceItem.length != 1) {
 				logDebug("**WARNING: fee item " + feeItem.getFeeSeqNbr() + " returned " + invoiceItem.length + " invoice matches")
 			} else {
 				fseqlist.push(feeItem.getFeeSeqNbr());
 				finvlist.push(invoiceItem[0].getInvoiceNbr());
+
 				if (feeBalance > payBalance)
 					fpaylist.push(payBalance);
 				else
 					fpaylist.push(feeBalance);
+
 				applyResult = aa.finance.applyPayment(capId, payment, fseqlist, finvlist, fpaylist, "NA", "NA", "0");
+
 				if (applyResult.getSuccess()) {
 					payBalance = payBalance - fpaylist[0];
 					logDebug("Applied $" + fpaylist[0] + " to fee code " + feeItem.getFeeCod() + ".  Payment Balance: $" + payBalance);
@@ -1683,12 +2718,12 @@ function applyPayments() {
 					return false
 				}
 			}
+
 			if (payBalance <= 0)
 				break;
 		}
 	}
 }
- 
  
 function appMatch(ats) // optional capId or CapID string
 	{
@@ -1720,7 +2755,7 @@ function appMatch(ats) // optional capId or CapID string
 	return isMatch;
 	}	
 
- 
+
  
 function appMatchArray(recordTypesArray){
     var capOverride = false;
@@ -1730,6 +2765,7 @@ function appMatchArray(recordTypesArray){
         itemCap = arguments[1]; // use cap ID specified in args
         capOverride = true;
     } 
+
     for(a in recordTypesArray){
         var recTypeToMatch = recordTypesArray[a];
         if(capOverride){
@@ -1746,7 +2782,7 @@ function appMatchArray(recordTypesArray){
     }
     return false;
 }
- 
+
  
 function appMatchArrayBefore(recordTypesArray){
     for(a in recordTypesArray){
@@ -1758,7 +2794,7 @@ function appMatchArrayBefore(recordTypesArray){
     return false;
 }
 
- 
+
  
 function appMatchBefore(ats) // optional capId or CapID string
     {
@@ -1774,7 +2810,6 @@ function appMatchBefore(ats) // optional capId or CapID string
                 isMatch = false;
     return isMatch;
     }    
- 
 function appNameIsUnique(gaGroup,gaType,gaName)
 //
 // returns true if gaName application name has not been used in CAPs of gaGroup and gaType
@@ -1795,107 +2830,164 @@ function appNameIsUnique(gaGroup,gaType,gaName)
 		}
 	return true;
 	}
+
  
- 
+
 function asiTableValObj(columnName, fieldValue, readOnly) {
 	this.columnName = columnName;
 	this.fieldValue = fieldValue;
 	this.readOnly = readOnly;
 	this.hasValue = Boolean(fieldValue != null & fieldValue != "");
+
 	asiTableValObj.prototype.toString=function(){ return this.hasValue ? String(this.fieldValue) : String(""); }
 }; 
- 
-function assignCap(assignId) // option CapId
-	{
-	var itemCap = capId
-	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+// @ts-check
+
+/**
+ * Assigns the staff whose user ID is assignId to the current record. Also assigns the user's department.
+ * Note: If you use the optional parameter capID, the function assigns the staff and department to the record capID instead.
+ * @param {string} assignId User ID of the user to whom to assign the record.
+ * @param {object} [itemCap] (unnamed/optional) - Cap ID object is second parmeter. If not supplied then global 'capId' is used 
+*/
+
+function assignCap(assignId) {
+	var itemCap;
+	if (arguments.length > 1) {
+		itemCap = arguments[1]; // use cap ID specified in args
+	} else if (typeof capId != "undefined") {
+		itemCap = capId;
+	}
+
+	if (!itemCap) {
+		logDebug("'assignCap' - CapID is required. Supply non-null second parameter or assign global variable 'capId'");
+		return false;
+	}
+	if (typeof assignId == "undefined" || assignId == null || assignId == "") {
+		logDebug("'assignCap' - var 'assignId' is required and must not be blank");
+		return false;
+	}
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
-	if (!cdScriptObjResult.getSuccess())
-		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+	if (!cdScriptObjResult.getSuccess()) {
+		logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage());
+		return false;
+	}
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
-	if (!cdScriptObj)
-		{ logDebug("**ERROR: No cap detail script object") ; return false; }
-	cd = cdScriptObj.getCapDetailModel();
-	iNameResult  = aa.person.getUser(assignId);
-	if (!iNameResult.getSuccess())
-		{ logDebug("**ERROR retrieving  user model " + assignId + " : " + iNameResult.getErrorMessage()) ; return false ; }
-	iName = iNameResult.getOutput();
+
+	if (!cdScriptObj) {
+		logDebug("**ERROR: No cap detail script object");
+		return false;
+	}
+
+	var cd = cdScriptObj.getCapDetailModel();
+
+	var iNameResult = aa.person.getUser(assignId);
+
+	if (!iNameResult.getSuccess()) {
+		logDebug("**ERROR retrieving  user model " + assignId + " : " + iNameResult.getErrorMessage());
+		return false;
+	}
+
+	var iName = iNameResult.getOutput();
+
 	cd.setAsgnDept(iName.getDeptOfUser());
 	cd.setAsgnStaff(assignId);
-	cdWrite = aa.cap.editCapDetail(cd)
-	if (cdWrite.getSuccess())
-		{ logDebug("Assigned CAP to " + assignId) }
-	else
-		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
+
+	var cdWrite = aa.cap.editCapDetail(cd)
+
+	if (cdWrite.getSuccess()) {
+		logDebug("Assigned CAP to " + assignId)
+	} else {
+		logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage());
+		return false;
 	}
+}
  
- 
+/**
+ * Assigns the inspector whose user ID is iName to the inspection whose sequence number is iNumber.
+ * Note: The inspection must already be scheduled on the record.
+ * @param {number} iNumber Inspection sequence number.
+ * @param {string} iName Inspector's user ID.
+ * @param {object} [itemCap] (unnamed/optional) - Cap ID object is third parmeter. If not supplied then global 'capId' is 
+ * @returns {boolean | undefined} Some issues may return FALSE, otherwise, nothing is returned.
+ */
 function assignInspection(iNumber, iName) {
-	// optional capId
-	// updates the inspection and assigns to a new user
-	// requires the inspection id and the user name
-	// V2 8/3/2011.  If user name not found, looks for the department instead
-	//
-	var itemCap = capId
-		if (arguments.length > 2)
-			itemCap = arguments[2]; // use cap ID specified in args
-		iObjResult = aa.inspection.getInspection(itemCap, iNumber);
+
+    var itemCap;
+	if (arguments.length > 2) {
+        itemCap = arguments[2]; // use cap ID specified in args
+	} else if(typeof capId != "undefined"){
+        itemCap = capId;
+    }
+    if(!itemCap){
+        logDebug("'assignInspection' - CapID is required. Supply non-null third parameter or assign global variable 'capId'");
+        return false;
+    }
+    if(typeof iNumber == "undefined" || iNumber == null || isNaN(parseInt(""+iNumber))){
+        logDebug("'assignInspection' - var 'iNumber' is required and must be a number");
+        return false;
+    }
+    if(typeof iName == "undefined" || iName == null || iName == ""){
+        logDebug("'assignInspection' - var 'iName' is required and must not be blank");
+        return false;
+    }
+    var l_sysDate = (typeof sysDate == "undefined" || !sysDate) ? aa.date.getCurrentDate() : sysDate;
+
+	var iObjResult = aa.inspection.getInspection(itemCap, iNumber);
 	if (!iObjResult.getSuccess()) {
 		logDebug("**WARNING retrieving inspection " + iNumber + " : " + iObjResult.getErrorMessage());
 		return false;
 	}
-	iObj = iObjResult.getOutput();
-	iInspector = aa.person.getUser(iName).getOutput();
-	if (!iInspector) // must be a department name?
-	{
+
+	var iObj = iObjResult.getOutput();
+
+	var iInspector = aa.person.getUser(iName).getOutput();
+
+	if (!iInspector) {
 		var dpt = aa.people.getDepartmentList(null).getOutput();
 		for (var thisdpt in dpt) {
 			var m = dpt[thisdpt]
-				if (iName.equals(m.getDeptName())) {
-					iNameResult = aa.person.getUser(null, null, null, null, m.getAgencyCode(), m.getBureauCode(), m.getDivisionCode(), m.getSectionCode(), m.getGroupCode(), m.getOfficeCode());
-					if (!iNameResult.getSuccess()) {
-						logDebug("**WARNING retrieving department user model " + iName + " : " + iNameResult.getErrorMessage());
-						return false;
-					}
-					iInspector = iNameResult.getOutput();
+			if (iName.equals(m.getDeptName())) {
+				var iNameResult = aa.person.getUser(null, null, null, null, m.getAgencyCode(), m.getBureauCode(), m.getDivisionCode(), m.getSectionCode(), m.getGroupCode(), m.getOfficeCode());
+
+				if (!iNameResult.getSuccess()) {
+					logDebug("**WARNING retrieving department user model " + iName + " : " + iNameResult.getErrorMessage());
+					return false;
 				}
+				iInspector = iNameResult.getOutput();
+			}
 		}
 	}
+
 	if (!iInspector) {
 		logDebug("**WARNING could not find inspector or department: " + iName + ", no assignment was made");
 		return false;
-	}
-	else
-	{
-		if(iInspector.getFirstName() == null)
-		{
+	} else {
+		if (iInspector.getFirstName() == null) {
 			iInspector.setFirstName("");
 		}
-		if(iInspector.getMiddleName() == null)
-		{
+		if (iInspector.getMiddleName() == null) {
 			iInspector.setMiddleName("");
 		}
-		if(iInspector.getLastName() == null)
-		{
+		if (iInspector.getLastName() == null) {
 			iInspector.setLastName("");
-		}	
-		if(iInspector.getGaUserID() == null)
-		{
+		}
+		if (iInspector.getGaUserID() == null) {
 			iInspector.setGaUserID("");
 		}
-		if(iInspector.getUserID() == null)
-		{
+		if (iInspector.getUserID() == null) {
 			iInspector.setUserID("");
 		}
 	}
+
 	logDebug("assigning inspection " + iNumber + " to " + iName);
 	iObj.setInspector(iInspector);
 	if (iObj.getScheduledDate() == null) {
-		iObj.setScheduledDate(sysDate);
+		iObj.setScheduledDate(l_sysDate);
 	}
-	aa.inspection.editInspection(iObj)
+	var editRslt = aa.inspection.editInspection(iObj);
 }
- 
  
 function assignTask(wfstr,username) // optional process name
 	{
@@ -1935,9 +3027,10 @@ function assignTask(wfstr,username) // optional process name
 			}			
 		}
 	}
- 
+
  
 function associateRefContactAddressToRecordContact(itemCap,cSeqNumber,rConAddrModel) {
+
 	if (itemCap && cSeqNumber && rConAddrModel) {
 		var xRefContactAddress = aa.address.createXRefContactAddressModel().getOutput();
 		xRefContactAddress.setCapID(itemCap);
@@ -1947,6 +3040,7 @@ function associateRefContactAddressToRecordContact(itemCap,cSeqNumber,rConAddrMo
 		xRefContactAddress.setEntityType(rConAddrModel.getEntityType());
 		// Create
 		var xrefResult = aa.address.createXRefContactAddress(xRefContactAddress.getXRefContactAddressModel());
+
 		if (xrefResult.getSuccess) {
 			logDebug("Successfully assocaited reference contact address to cap contact: " + cSeqNumber);
 			return true;
@@ -1954,51 +3048,66 @@ function associateRefContactAddressToRecordContact(itemCap,cSeqNumber,rConAddrMo
 			logDebug("Failed to associate reference contact address to cap: " + xrefResult.getErrorMessage());
 			return false;
 		}
+
 	} else {
 		logDebug("Could not associate reference contact address no address model, capId or cap contact sequence number");
 		return false;		
 	}
+
 } 
- 
 function autoAssignInspection(iNumber)
 	{
 	// updates the inspection and assigns to a new user
 	// requires the inspection id
 	//
+
 	iObjResult = aa.inspection.getInspection(capId,iNumber);
 	if (!iObjResult.getSuccess())
 		{ logDebug("**ERROR retrieving inspection " + iNumber + " : " + iObjResult.getErrorMessage()) ; return false ; }
 	
 	iObj = iObjResult.getOutput();
 
+
 	inspTypeResult = aa.inspection.getInspectionType(iObj.getInspection().getInspectionGroup(), iObj.getInspectionType())
+
 	if (!inspTypeResult.getSuccess())
 		{ logDebug("**ERROR retrieving inspection Type " + inspTypeResult.getErrorMessage()) ; return false ; }
 	
 	inspTypeArr = inspTypeResult.getOutput();
+
         if (inspTypeArr == null || inspTypeArr.length == 0)
 		{ logDebug("**ERROR no inspection type found") ; return false ; }
+
 	inspType = inspTypeArr[0]; // assume first
+
 	inspSeq = inspType.getSequenceNumber();
+
 	inspSchedDate = iObj.getScheduledDate().getYear() + "-" + iObj.getScheduledDate().getMonth() + "-" + iObj.getScheduledDate().getDayOfMonth()
+
  	logDebug(inspSchedDate)
+
 	iout =  aa.inspection.autoAssignInspector(capId.getID1(),capId.getID2(),capId.getID3(), inspSeq, inspSchedDate)
+
 	if (!iout.getSuccess())
 		{ logDebug("**ERROR retrieving auto assign inspector " + iout.getErrorMessage()) ; return false ; }
+
 	inspectorArr = iout.getOutput();
+
 	if (inspectorArr == null || inspectorArr.length == 0)
 		{ logDebug("**WARNING no auto-assign inspector found") ; return false ; }
 	
 	inspectorObj = inspectorArr[0];  // assume first
 	
 	iObj.setInspector(inspectorObj);
+
 	assignResult = aa.inspection.editInspection(iObj)
+
 	if (!assignResult.getSuccess())
 		{ logDebug("**ERROR re-assigning inspection " + assignResult.getErrorMessage()) ; return false ; }
 	else
 		logDebug("Successfully reassigned inspection " + iObj.getInspectionType() + " to user " + inspectorObj.getUserID());
+
 	}
- 
  
 /**
  * Auto schedules an inspection using a RecordID, Inspection Sequence Number, 
@@ -2137,52 +3246,100 @@ function autoScheduleInspection(vCapId, inspSeqNbr, date) {
     logDebug("***ENDING function: " + funcName + new Date().toLocaleTimeString() + "<br>");
     return assignInfo;
 } 
+//@ts-check
+
+/**
+ * Executes the standard choice script control whose name is iNumber as a sub-control.
+ * Note: The script stdChoice must contain only valid criteria/action pairs sequentially numbered.
+ * @param {string} stdChoice Standard choices item namestring. Case sensitive.
+ */
+
+function branch(stdChoice) {
+	doStandardChoiceActions(stdChoice, true, 0);
+}
+
  
-function branch(stdChoice)
-	{
-	doStandardChoiceActions(stdChoice,true,0);
+//@ts-check
+
+/**
+ * Updates the workflow task wfstr as follows:
+ * •Status = wfstat
+ * •Status Date = current date
+ * •Status Comment = wfcomment
+ * •Action By = current user
+ * 
+ * ---
+ * **Notes**
+ * The function closes the task wfstr and the workflow proceeds to the branch task.
+ * If record’s workflow contains duplicate wfstr tasks, use parameter wfProcess to specify the process or
+ * subprocess whose wfstr to edit.
+ * 
+ * ---
+ * **Global Variable**:
+ * - capId
+ * - systemUserObj
+ * 
+ * ---
+ * @param {string} wfstr Workflow task name.
+ * @param {string} wfstat Status.
+ * @param {string} wfcomment Comment.
+ * @param {string} wfnote Note to add to the workflow task.
+ * @param {string} [wfProcess] (unnamed/optional) - ID (R1_PROCESS_CODE) for the process that the task belongs to. Required for multi-level workflows.
+ * @returns {boolean | undefined} Some issues may return FALSE, otherwise, nothing is returned.
+ */
+
+function branchTask(wfstr, wfstat, wfcomment, wfnote) {
+
+	if (typeof capId === typeof undefined) {
+		logDebug("capId is undefined.");
+		return false;
 	}
- 
- 
-function branchTask(wfstr,wfstat,wfcomment,wfnote) // optional process name
-	{
+
+	if (typeof systemUserObj === typeof undefined) {
+		logDebug("systemUserObj is undefined.");
+		return false;
+	}
+
 	var useProcess = false;
 	var processName = "";
-	if (arguments.length == 5) 
-		{
+	if (arguments.length == 5) {
 		processName = arguments[4]; // subprocess
 		useProcess = true;
-		}
+	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
- 	if (workflowResult.getSuccess())
-  	 	var wfObj = workflowResult.getOutput();
-  	else
-  	  	{ logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
-	
-	if (!wfstat) wfstat = "NA";
-	
-	for (i in wfObj)
-		{
-   		var fTask = wfObj[i];
- 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase())  && (!useProcess || fTask.getProcessCode().equals(processName)))
-			{
+	if (workflowResult.getSuccess()) {
+		var wfObj = workflowResult.getOutput();
+	} else {
+		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false;
+	}
+
+	if (!wfstat) {
+		wfstat = "NA"
+	}
+
+	for (var i in wfObj) {
+		var fTask = wfObj[i];
+		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var dispositionDate = aa.date.getCurrentDate();
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
-			if (useProcess)
-				aa.workflow.handleDisposition(capId,stepnumber,processID,wfstat,dispositionDate, wfnote,wfcomment,systemUserObj ,"B");
-			else
-				aa.workflow.handleDisposition(capId,stepnumber,wfstat,dispositionDate, wfnote,wfcomment,systemUserObj ,"B");
-			
+
+			if (useProcess) {
+				aa.workflow.handleDisposition(capId, stepnumber, processID, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, "B");
+			} else {
+				aa.workflow.handleDisposition(capId, stepnumber, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, "B");
+			}
 			logMessage("Closing Workflow Task: " + wfstr + " with status " + wfstat + ", Branching...");
 			logDebug("Closing Workflow Task: " + wfstr + " with status " + wfstat + ", Branching...");
-			}			
 		}
 	}
- 
+}
+
  
 function callWebService(wsSubScript, wsScriptParameters)
 	{
+
 		aa.env.setValue("wsScriptParameters",wsScriptParameters);
 		aa.env.setValue("wsScriptDebug","");
 		aa.env.setValue("wsScriptMessage","");
@@ -2209,205 +3366,292 @@ function callWebService(wsSubScript, wsScriptParameters)
 		
 	}
  
- 
-function capHasExpiredLicProf(pDateType, pLicType, pCapId)
-	{
-	//Checks if any licensed professional of specified type (optional) on CAP has expired,  Expiration date type specified by pDateType.
-	//If any have expired, displays message and returns true.  If expiration date is on or before current date, it is expired.
-	//If any date is blank, script assumes that date has not expired.
+//@ts-check
+
+/**
+ * Returns true if any licensed professional on the record has expired; otherwise, returns false.
+ * Comparison is done on current date is GT than expiration date. Any blank date is assumed to not have expired. 
+ * 
+ * **Notes**:
+ * 
+ * Checks for expiration by retrieving the licensed professional reference record having the same license # 
+ * and checking the expiration date specified by pDateType. If the expiration date is on or before the current 
+ * date, the script returns true. Skips disabled licensed professionals.
+ * Use parameter pLicType to check a specific license type. Use parameter pCapId to check licensed
+ * professionals on a record other than the current record.
+ * 
+ * dateType values:
+ * - EXPIRE: License Expiration Date
+ * - INSURANCE: Insurance Expiration Date
+ * - BUSINESS: Business License Expiration Date
+ * ---
+ * **Global Variables**:
+ * - capId
+ * ---
+ * @param {("EXPIRE" | "INSURANCE" | "BUSINESS")} pDateType Expiration date to check. Options (use one): EXPIRE, INSURANCE, BUSINESS.
+ * @param {string} [pLicType] (Optional) License type. Case sensitive
+ * @param {CapIDModel} [pCapId] (Optional) Record ID object of record. If null, the function applies to the current record.
+ * @returns  {boolean} Returns true if any licensed professional on the record has expired; otherwise (or in case of error), returns false.
+ */
+function capHasExpiredLicProf(pDateType, pLicType, pCapId) {
 	//Uses functions: refLicProfGetDate, jsDateToMMDDYYYY(), matches()
-	//SR5054B
-	
-	//Validate parameters
-	var vDateType;
-	if ( pDateType==null || pDateType=="" )
-		{
-		logDebug ("Invalid expiration type parameter");
+
+	if (!pCapId && typeof capId === typeof undefined || capId === null) {
+		logDebug("'capHasExpiredLicProf' Error: Global variable 'capId' not defined or pCapId given is not defined.");
 		return false;
-		}
-	else
-		{
-		vDateType = pDateType.toUpperCase();
-		if ( !matches(vDateType, "EXPIRE","INSURANCE","BUSINESS") )
-			{
-			logDebug ("Invalid expiration type parameter");
-			return false;
-			}
-		}
-	var vCapId = pCapId;
-	if ( pCapId==null || pCapId=="" ) //If no capid parameter, use current cap
-		vCapId = capId;
-	
+	}
+  var vCapId = pCapId || capId;
+
+	if (!pDateType || (pDateType && !matches(pDateType.toUpperCase(), "EXPIRE", "INSURANCE", "BUSINESS"))) {
+		logDebug("'capHasExpiredLicProf' Error: Invalid 'pDateType' parameter value. Allowed values are ['EXPIRE', 'INSURANCE', 'BUSINESS']. Got: " + pDateType);
+		return false;
+	}
+	var vDateType = pDateType.toUpperCase();
+
 	//get Licensed Profs on CAP
-	var licProfResult = aa.licenseScript.getLicenseProf(capId);
-	if (!licProfResult.getSuccess())
-		{
-		logDebug("Error getting CAP's license professional: " +licProfResult.getErrorMessage());
+	var licProfResult = aa.licenseScript.getLicenseProf(vCapId);
+	if (!licProfResult.getSuccess()) {
+		logDebug("'capHasExpiredLicProf' Error: Error getting CAP's license professional: " + licProfResult.getErrorMessage());
 		return false;
-		}
+	}
+
+
 	var vToday = new Date(aa.util.now());
 	var vExpired = false;
 	var licProfList = licProfResult.getOutput();
-	if (licProfList)
-		{
-		for (i in licProfList)
-			{
-			if ( pLicType==null || pLicType=="" || pLicType.equals(licProfList[i].getLicenseType()) )
-				{
-				var licNum = licProfList[i].getLicenseNbr();
-				
-				//Check if has expired
-				var vResult = refLicProfGetDate(licNum, vDateType);
-				if (vResult < vToday)
-					{
-					vExpired = true;
-					logMessage("WARNING: Licence # "+licNum+" expired on "+jsDateToMMDDYYYY(vResult));
-					logDebug("Licence # "+licNum+" expired on "+jsDateToMMDDYYYY(vResult));
-					}			
-				}
+	if (!licProfList) {
+		logDebug("'capHasExpiredLicProf': No licensed professionals found on CAP");
+		return false;
+	}
+
+	for (var i in licProfList) {
+		if (!pLicType || pLicType.equals(licProfList[i].getLicenseType())) {
+			var licNum = licProfList[i].getLicenseNbr();
+
+			//Check if has expired
+			var vResult = refLicProfGetDate(licNum, vDateType);
+			if (vResult < vToday) {
+				vExpired = true;
+				logMessage("WARNING: Licence # " + licNum + " expired on " + jsDateToMMDDYYYY(vResult));
+				logDebug("Licence # " + licNum + " expired on " + jsDateToMMDDYYYY(vResult));
 			}
 		}
-	else
-		{
-		logDebug("No licensed professionals found on CAP");
-		return false;
-		}
+	}
 	return vExpired;
-	} 
+}
  
-function capIdsFilterByFileDate(pCapIdArray, pStartDate, pEndDate)
-	{
-	//Filters CAP's in pCapIdArray by file date, and returns only CAP's whose file date falls within pStartDate and pEndDate, as a capId Array
-	//Parameter pCapIdArray must be array of capId's (CapIDModel objects)
-	//07SSP-00034/SP5015
-	
-	if (pCapIdArray.length==0 || pCapIdArray[0]==undefined)
-		{
-		logDebug("Invalid 1st parameter");
+//@ts-check
+
+/**
+ * Searches though the records in pCapIdArray and returns only records whose file date is between 
+ * pStartDate and pEndDate, as an array of capId (CapIDModel) objects.
+ * 
+ * **Notes:**
+ * To find the number of records returned, store the return value to a variable and use the length 
+ * property to find the number of records in the array.
+ * 
+ * ----
+ * @example
+ * 
+ * capArray = capIdsFilterByFileDate(myCapArray, "01/01/2006", "12/31/2006");
+ * capCount = capArray.length;
+ * ---
+ *
+ * @param {Array<CapIDModel>} pCapIdArray Array of record ID (CapIDModel) objects to filter.
+ * @param {string} pStartDate Start date of the file date range, in MM/DD/YYYY format.
+ * @param {string} pEndDate End date of the file date range, in MM/DD/YYYY format.
+ * @returns {Array<CapIDModel> | boolean} returns the filtered array, or false in case of error
+ */
+function capIdsFilterByFileDate(pCapIdArray, pStartDate, pEndDate) {
+
+	if (!pCapIdArray || pCapIdArray.length === 0 || pCapIdArray[0] === undefined) {
+		logDebug("'capIdsFilterByFileDate' Error: 'pCapIdArray' element is empty");
 		return false;
-		}
+	}
+
 	var filteredArray = new Array();
 	var startDate = new Date(pStartDate);
 	var endDate = new Date(pEndDate);
+	if(isNaN(startDate.getTime())|| isNaN(endDate.getTime())){
+        logDebug("'capIdsFilterByFileDate' Error: supply both 'pStartDate' and 'pEndDate' in MM/DD/YYYY format");
+        return false;
+    }
 	var relcap;
 	var fileDate;
-	
-	logDebug("Filtering CAP array by file date between "+pStartDate+" and "+pEndDate);
-	for (y in pCapIdArray)
-		{
-		relcap = aa.cap.getCap(pCapIdArray[y]).getOutput(); //returns CapScriptModel object
-		fileDate = convertDate(relcap.getFileDate()); //returns javascript date
-		//logDebug("CAP: "+pCapIdArray[y]+", File Date: "+fileDate);
-		if (fileDate >= startDate && fileDate <= endDate)
-			filteredArray.push(pCapIdArray[y]); //add cap to array
-		}
-	
+
+	logDebug("Filtering CAP array by file date between " + pStartDate + " and " + pEndDate);
+	for (var y in pCapIdArray) {
+        try{
+            relcap = aa.cap.getCap(pCapIdArray[y]).getOutput(); //returns CapScriptModel object
+            fileDate = convertDate(relcap.getFileDate()); //returns javascript date
+            if (fileDate >= startDate && fileDate <= endDate){
+                filteredArray.push(pCapIdArray[y]); //add cap to array
+            }
+        } catch (err){
+            logDebug("'capIdsFilterByFileDate' issue in position " + y + " in 'pCapIdArray' array. Continue" );
+            continue;
+        }
+	}
+
 	return filteredArray;
-	} 
- 
+} 
+//@ts-check
+
+/**
+ * Returns records that have the same property address as the current record, as an array of capId (CapIDModel) objects.
+ * Current record is included in the return array.
+ * 
+ * **Notes:**
+ * 
+ * The function matches addresses based on these fields:
+ * - House Nbr Start
+ * - Street Direction
+ * - Street Name
+ * - Street Suffix
+ * - Zip
+ * You can use this function with all events except ApplicationSubmitBefore. The records returned include
+ * the current record. If the current record has more than one property address, the function uses the first
+ * address to match.
+ * To find the number of records returned, store the return value to a variable and use the length property to
+ * find the number of records in the array.
+ * 
+ * ---
+ * **Global Variable**:
+ * - capId
+ * ---
+ * 
+ * @example
+ * capArray = capIdsGetByAddr(); 
+ * logDebug("Number of CAPs: " + capArray.length);
+ * 
+ * @returns {Array<CapIDModel> | boolean} Array of CapIDModel in the case of existing, false otherwise(or in case of error)
+ */
 function capIdsGetByAddr() {
-	//Gets CAPs with the same address as the current CAP, as capId (CapIDModel) object array (array includes current capId)
-	//07SSP-00034/SP5015
-	//
+
+	if(typeof capId === typeof undefined || capId === null){
+		logDebug("'capIdsGetByAddr' Error: Required global variable 'capId' is not defined.");
+		return false;
+	}
 	//Get address(es) on current CAP
 	var addrResult = aa.address.getAddressByCapId(capId);
 	if (!addrResult.getSuccess()) {
 		logDebug("**ERROR: getting CAP addresses: " + addrResult.getErrorMessage());
 		return false;
 	}
-	var addrArray = new Array();
+
 	var addrArray = addrResult.getOutput();
 	if (addrArray.length == 0 || addrArray == undefined) {
 		logDebug("The current CAP has no address.  Unable to get CAPs with the same address.")
 		return false;
 	}
+
 	//use 1st address for comparison
 	var streetName = addrArray[0].getStreetName();
 	var hseNum = addrArray[0].getHouseNumberStart();
 	var streetSuffix = addrArray[0].getStreetSuffix();
 	var zip = addrArray[0].getZip();
 	var streetDir = addrArray[0].getStreetDirection();
-	if (streetDir == "")
-		streetDir = null;
-	if (streetSuffix == "")
-		streetSuffix = null;
-	if (zip == "")
-		zip = null;
+
+	if (streetDir == "") streetDir = null;
+	if (streetSuffix == "") streetSuffix = null;
+	if (zip == "") zip = null;
+
 	if (hseNum && !isNaN(hseNum)) {
 		hseNum = parseInt(hseNum);
 	} else {
 		hseNum = null;
 	}
+
 	// get caps with same address
+    if(!streetName && !hseNum && !streetSuffix && !zip && !streetDir){
+        logDebug("The current CAP has no address.  Unable to get CAPs with the same address.");
+		return false;
+    }
 	var capAddResult = aa.cap.getCapListByDetailAddress(streetName, hseNum, streetSuffix, zip, streetDir, null);
-	if (capAddResult.getSuccess())
-		var capArray = capAddResult.getOutput();
-	else {
+	if (!capAddResult.getSuccess()){
 		logDebug("**ERROR: getting similar addresses: " + capAddResult.getErrorMessage());
 		return false;
 	}
+		
+	var capArray = capAddResult.getOutput();
+
 	var capIdArray = new Array();
 	//convert CapIDScriptModel objects to CapIDModel objects
-	for (i in capArray)
+	for (var i in capArray){
 		capIdArray.push(capArray[i].getCapID());
-	if (capIdArray)
+    }
+
+	if (capIdArray){
 		return (capIdArray);
-	else
-		return false;
+	} 
+	return false;
 } 
- 
-function capIdsGetByParcel(pParcelNum)
-	{
-	//Gets CAPs that have parcel pParcelNum, as capId (CapIDModel object)  array (array includes current capId)
-	//if parameter pParcelNum is null, uses 1st parcel on current CAP
-	//07SSP-00034/SP5015
-	//
-	if (pParcelNum != null)
-		var parcelNum = pParcelNum;
-	else
-		{
-		var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
-		if (!capParcelResult.getSuccess())
-			{
-			logDebug("**ERROR: Failed to get parcels: " + capParcelResult.getErrorMessage()); 
-			return false; 
-			}
-			
-		var Parcels = capParcelResult.getOutput().toArray();
-		if (Parcels[0]==undefined)
-			{
-			logDebug("Current CAP has no parcel");
+//@ts-check
+
+/**
+ * Returns records that have the same parcel as the current record, as an array of capId (CapIDModel) objects.
+ * 
+ * **Notes**:
+ * 
+ * The records returned include the current record.
+ * To find the number of records returned, store the return value to a variable and use the length property to find the number of records in the array.
+ * 
+ * ---
+ * 
+ * @example
+ * capArray = capIdsGetByParcel(); 
+ * logDebug("Number of CAPs: " + capArray.length);
+ * @param {string} [pParcelNum] (Optional) Parcel number to search for. If null or omitted, the function uses the first parcel number on the current record.
+ * @returns {Array<CapIDModel> | boolean} Returns records that have the same parcel as the current record. If the current record has no parcel, returns false.
+ */
+function capIdsGetByParcel(pParcelNum) {
+
+	var parcelNum = pParcelNum;
+	if (typeof parcelNum === typeof undefined || parcelNum === null) {
+		if (typeof capId === typeof undefined || capId === null) {
+			logDebug("'capIdsGetByParcel' Error: When parameter 'pParcelNum' is not defined, global variable 'capId' is required.");
 			return false;
-			}
-		var parcelNum = Parcels[0].getParcelNumber();
 		}
-		
-	capParcelResult = aa.cap.getCapListByParcelID(parcelNum, aa.util.newQueryFormat());
-	
-	if (!capParcelResult.getSuccess())
-		{
-		logDebug("**ERROR: Failed to get parcels: " + capParcelResult.getErrorMessage()); 
-		return false; 
+		var capAllParcelResult = aa.parcel.getParcelandAttribute(capId, null);
+		if (!capAllParcelResult.getSuccess()) {
+			logDebug("**ERROR: Failed to get parcels: " + capAllParcelResult.getErrorMessage());
+			return false;
 		}
-	
+
+		var Parcels = capAllParcelResult.getOutput().toArray();
+		if (Parcels[0] == undefined) {
+			logDebug("'capIdsGetByParcel': Current CAP has no parcel");
+			return false;
+		}
+		parcelNum = Parcels[0].getParcelNumber();
+	}
+	aa.print("'capIdsGetByParcel' Parcel : " + parcelNum);
+
+	var capParcelResult = aa.cap.getCapListByParcelID(parcelNum, aa.util.newQueryFormat());
+
+	if (!capParcelResult.getSuccess()) {
+		logDebug("**ERROR: Failed to get parcels: " + capParcelResult.getErrorMessage());
+		return false;
+	}
+
 	var capParArray = capParcelResult.getOutput();
 	var capIdParArray = new Array();
 	//convert CapIDScriptModel objects to CapIDModel objects
-	for (i in capParArray)
+	for (var i in capParArray) {
 		capIdParArray.push(capParArray[i].getCapID());
-		
-	if (capIdParArray)
-		return capIdParArray;
-	else
-		return false;
 	}
-		
-	 
- 
+
+	if (capIdParArray) {
+		return capIdParArray;
+	}
+
+	return false;
+} 
 function capSet(desiredSetId)
     {
     this.refresh = function()
         {
+
         var theSet = aa.set.getSetByPK(this.id).getOutput();
 		this.status = theSet.getSetStatus();
         this.setId = theSet.getSetID();
@@ -2416,7 +3660,9 @@ function capSet(desiredSetId)
 		this.model = theSet.getSetHeaderModel();
 		this.statusComment = theSet.getSetStatusComment();
 		this.type = theSet.getRecordSetType();
+
         var memberResult = aa.set.getCAPSetMembersByPK(this.id);
+
         if (!memberResult.getSuccess()) { logDebug("**WARNING** error retrieving set members " + memberResult.getErrorMessage()); }
         else
             {
@@ -2441,6 +3687,7 @@ function capSet(desiredSetId)
 	this.updateMemberStatus = function(addCapId,setMemberStatus) {
 	
 		// Update a SetMember Status for a Record in SetMember List.
+
         var setUpdateScript = aa.set.getSetDetailsScriptModel().getOutput();
         setUpdateScript.setSetID(this.id);          //Set ID
         setUpdateScript.setID1(addCapId.getID1());
@@ -2449,6 +3696,7 @@ function capSet(desiredSetId)
         setUpdateScript.setSetMemberStatus(setMemberStatus); 
         setUpdateScript.setSetMemberStatusDate(aa.date.getCurrentDate());  
         setUpdateScript.setServiceProviderCode(aa.getServiceProviderCode());
+
         var addResult = aa.set.updateSetMemberStatus(setUpdateScript);
         
         if (!addResult.getSuccess()) 
@@ -2492,6 +3740,7 @@ function capSet(desiredSetId)
 		catch(err) {
             logDebug("**WARNING** error updating set header failed " + err.message);
             }
+
         }
     
     this.id = desiredSetId;
@@ -2532,7 +3781,6 @@ function capSet(desiredSetId)
         }
     }
  
- 
 function checkCapForLicensedProfessionalType( licProfType )
 {
 	var capLicenseResult = aa.licenseScript.getLicenseProf(capId);
@@ -2558,7 +3806,6 @@ function checkCapForLicensedProfessionalType( licProfType )
 	else
 		{ aa.print("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage()); return false; }
 } 
- 
 function checkForLastDocCat(vDocCat,capId)
 {
 //function looks at the last date any document(s) was uploaded and evaluates if matches the specified doc type
@@ -2586,10 +3833,10 @@ if (docListResult.getSuccess())
 				}
 			}
 		}
+
 	}
 	return varWasUploaded;
 }
- 
  
 function checkInspectionResult(insp2Check,insp2Result)
 	{
@@ -2603,12 +3850,16 @@ function checkInspectionResult(insp2Check,insp2Result)
 		}
 	return false;
 	}
- 
+
  
 function checkRequiredASIFields() {
+
 	var appSpecInfoResult = aa.appSpecificInfo.getByCapID(capId);
+
 	var asiObjs = appSpecInfoResult.getOutput();
+
 	var fieldsComplete = true;
+
 	for (var i in asiObjs) {
 		if (asiObjs[i].getRequiredFlag() == "Y") {
 			if (matches(asiObjs[i].checklistComment,null,undefined,"")) {
@@ -2618,7 +3869,6 @@ function checkRequiredASIFields() {
 	}
 	return fieldsComplete;
 } 
- 
 function childGetByCapType(pCapType, pParentCapId) 
 	{
 	// Returns capId object of first child of pParentCapId whose cap type matches pCapType parameter
@@ -2681,52 +3931,85 @@ function childGetByCapType(pCapType, pParentCapId)
 	}
 	
  
- 
-function closeCap(userId) // option CapId
-{
-	var itemCap = capId
-		if (arguments.length > 1)
-			itemCap = arguments[1]; // use cap ID specified in args
-		var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
+//@ts-check
+
+/**
+ * Sets thje Closed Date value to the current date and the Close by Staff field to the ID of the user who closes the record.
+ * 
+ * ----
+ * **Global Variables**:
+ * - capId
+ * - sysDate
+ * ----
+ * 
+ * @param {string} userId ID of user who closes the record.
+ * @param {CapIDModel} capId (Optional) Record to perform action on.
+ * @returns {boolean} true if the cap was closed, false otherwise (or in case of error)
+ */
+function closeCap(userId) {
+
+	if (arguments.length <= 1 && (typeof capId === typeof undefined || capId === null)){
+		logDebug("'closeCap' Error: Required global variable 'capId' or 'capId' optional parameter not defined");
+		return false;
+	}
+
+	var localSysDate = (typeof sysDate === typeof undefined || sysDate === null ) ? aa.date.getCurrentDate() : sysDate ; 
+
+	var itemCap = arguments.length > 1 ? arguments[1] : capId;
+
+
+	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess()) {
 		logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage());
 		return false;
 	}
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj) {
 		logDebug("**ERROR: No cap detail script object");
 		return false;
 	}
-	cd = cdScriptObj.getCapDetailModel();
-	iNameResult = aa.person.getUser(userId);
+
+	var cd = cdScriptObj.getCapDetailModel();
+
+	var iNameResult = aa.person.getUser(userId);
+
 	if (!iNameResult.getSuccess()) {
 		logDebug("**ERROR retrieving  user model " + userId + " : " + iNameResult.getErrorMessage());
 		return false;
 	}
-	iName = iNameResult.getOutput();
+
+	var iName = iNameResult.getOutput();
+
 	cd.setClosedDept(iName.getDeptOfUser());
 	cd.setClosedBy(userId);
-	cdScriptObj.setClosedDate(sysDate);
-	cdWrite = aa.cap.editCapDetail(cd)
-		if (cdWrite.getSuccess()) {
-			logDebug("Set CAP *Closed by Staff* to " + userId) + "\nSet CAP *Closed by Dept* " + iName.getDeptOfUser() + "\nSet CAP *Closed Date* " + sysDate.toString();
-		} else {
-			logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage());
-			return false;
-		}
+	cdScriptObj.setClosedDate(localSysDate);
+
+	var cdWrite = aa.cap.editCapDetail(cd)
+
+	if (!cdWrite.getSuccess()) {
+		logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage());
+		return false;
+	}
+	
+	logDebug("Set CAP *Closed by Staff* to " + userId + "\nSet CAP *Closed by Dept* " + iName.getDeptOfUser() + "\nSet CAP *Closed Date* " + localSysDate.toString());
+	return true;
 } 
- 
 function closeSubWorkflow(thisProcessID,wfStat) // optional capId
 	{
 	var itemCap = capId;
 	if (arguments.length == 3) itemCap = arguments[2]; // use cap ID specified in args
 
+
 	var isCompleted = true;
+
 	var workflowResult = aa.workflow.getTasks(itemCap);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
 	else
 		{ logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
+
 	for (i in wfObj)
 		{
 		var fTaskSM = wfObj[i];
@@ -2736,83 +4019,193 @@ function closeSubWorkflow(thisProcessID,wfStat) // optional capId
 			isCompleted = false
 			}
 		}
+
 	if (!isCompleted) return false;
 
+
 	// get the parent task
+
 	var relationArray = aa.workflow.getProcessRelationByCapID(itemCap,null).getOutput()
+
 	var relRecord = null;
+
 	for (thisRel in relationArray)
 		if (relationArray[thisRel].getProcessID() == thisProcessID)
 			relRecord = relationArray[thisRel];
+
 	if (!relRecord)
 		{
 		logDebug("closeSubWorkflow: did not find a process relation, exiting",3);
 		return false;
 		}
+
 	logDebug("executing handleDisposition:" + relRecord.getStepNumber() + "," + relRecord.getParentProcessID() + "," + wfStat,3);
+
 	var handleResult = aa.workflow.handleDisposition(itemCap,relRecord.getStepNumber(),relRecord.getParentProcessID(),wfStat,sysDate,"Closed via script","Closed via script",systemUserObj ,"Y");
+
 	if (!handleResult.getSuccess())
 		logDebug("**WARNING: closing parent task: " + handleResult.getErrorMessage());
 	else
 		logDebug("Closed parent task");
 	}
  
- 
-function closeTask(wfstr,wfstat,wfcomment,wfnote) // optional process name
-	{
+//@ts-check
+
+/**
+ * Updates the workflow task wfstr as follows:
+ * - Status = wfstat
+ * - Status Date = current date
+ * - Status Comment = wfcomment
+ * - Action By = current user
+ * 
+ * **Notes**:
+ * 
+ * Closes the task wfstr and promotes the workflow to the next task, even if wfstat loops or branches. If
+ * workflow needs to loop or branch, use loopTask or branchTask functions.
+ * If record's workflow contains duplicate wfstr tasks, use wfProcess parameter to specify the process or
+ * subprocess whose wfstr to edit.
+ * This old name for this function is closeWorkflow2.
+ *
+ *
+ * @param {string} wfstr Workflow task name.
+ * @param {string} wfstat Status to update.
+ * @param {string} wfcomment Comment to add.
+ * @param {string} wfnote note to add to the workflow task.
+ * @param {string} [wfProcess] (Optional) ID (R1_PROCESS_CODE ) for the process that the task belongs to. Required for multi-level workflows
+ */
+
+
+function closeTask(wfstr, wfstat, wfcomment, wfnote) {
+    // optional process name
+
+    if(typeof wfstr == "undefined" || wfstr == null){
+        logDebug("'closeTask' requires 'wfstr' parameter.");
+        return false;
+    }
+    if(typeof wfstat == "undefined" || wfstat == null){
+        logDebug("'closeTask' requires 'wfstat' parameter.");
+        return false;
+    }
+	if (typeof capId === typeof undefined || capId == null) {
+		logDebug("'closeTask' requires global 'capId' be defined.");
+		return false;
+	}
+    var l_systemUserObj;
+    if(typeof systemUserObj == "undefined"){
+        l_systemUserObj = systemUserObj;
+    } else {
+        // try to set
+        if(typeof currentUserID != "undefined"){
+            l_systemUserObj = aa.person.getUser(currentUserID).getOutput();
+        } else {
+            l_systemUserObj = aa.person.getUser(aa.env.getValue("currentUserID")).getOutput();
+        }
+    }
+
 	var useProcess = false;
 	var processName = "";
-	if (arguments.length == 5) 
-		{
+	if (arguments.length == 5) {
 		processName = arguments[4]; // subprocess
 		useProcess = true;
-		}
+	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
- 	if (workflowResult.getSuccess())
-  	 	var wfObj = workflowResult.getOutput();
-  	else
-  	  	{ logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
-	
-	if (!wfstat) wfstat = "NA";
-	
-	for (i in wfObj)
-		{
-   		var fTask = wfObj[i];
- 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase())  && (!useProcess || fTask.getProcessCode().equals(processName)))
-			{
+	if (workflowResult.getSuccess()){
+		var wfObj = workflowResult.getOutput();
+    } else { 
+        logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); 
+        return false; 
+    }
+
+	if (!wfstat) {
+        wfstat = "NA";
+    }
+
+	for (var i in wfObj) {
+		var fTask = wfObj[i];
+		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var dispositionDate = aa.date.getCurrentDate();
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
-			if (useProcess)
-				aa.workflow.handleDisposition(capId,stepnumber,processID,wfstat,dispositionDate, wfnote,wfcomment,systemUserObj ,"Y");
-			else
-				aa.workflow.handleDisposition(capId,stepnumber,wfstat,dispositionDate, wfnote,wfcomment,systemUserObj ,"Y");
-			
+
+			if (useProcess) {
+				aa.workflow.handleDisposition(capId, stepnumber, processID, wfstat, dispositionDate, wfnote, wfcomment, l_systemUserObj, "Y");
+			} else {
+				aa.workflow.handleDisposition(capId, stepnumber, wfstat, dispositionDate, wfnote, wfcomment, l_systemUserObj, "Y");
+			}
 			logMessage("Closing Workflow Task: " + wfstr + " with status " + wfstat);
 			logDebug("Closing Workflow Task: " + wfstr + " with status " + wfstat);
-			}			
 		}
 	}
+}
  
- 
-function comment(cstr)
-	{
-	if (showDebug) logDebug(cstr);
-	if (showMessage) logMessage(cstr);
+//@ts-check
+
+/**
+ * You can use this function to display messages to the user, as well as variables to aid in debugging issues.
+ * @param {string} cstr Comment to display.
+ * 
+ * ---
+ * **Notes**
+ * Use logMessage and logDebug functions instead.
+ * Adds the message cstr to the message/debug window when the script executes. If you enable debugging
+ * (i.e., showDebug = true), the comment shows in the debug messages. If you enable messages (i.e.,
+ * showMessage = true), the comment shows in the messages. If you do not enable debugging or messages,
+ * the comment does not display.
+ * Use this function instead of directly assigning value to message variable in script control.
+ * 
+ * ---
+ * **Global Variable**:
+ * - showDebug
+ * - showMessage
+ * 
+ * ---
+ */
+
+function comment(cstr) {
+
+	if (typeof showDebug === typeof undefined) {
+		logDebug("showDebug is undefined.");
+		return false;
 	}
-	
+
+	if (typeof showMessage === typeof undefined) {
+		logDebug("showMessage is undefined.");
+		return false;
+	}
+
+
+	if (showDebug) {
+		logDebug(cstr);
+	}
+	if (showMessage) {
+		logMessage(cstr);
+	}
+
+}
+
  
- 
-function comparePeopleGeneric(peop)
-	{
-	// this function will be passed as a parameter to the createRefContactsFromCapContactsAndLink function.
-	//
-	// takes a single peopleModel as a parameter, and will return the sequence number of the first G6Contact result
-	//
-	// returns null if there are no matches
-	//
-	// current search method is by email only.  In order to use attributes enhancement 09ACC-05048 must be implemented
-	//
+//@ts-check
+
+/**
+ * This function passes as a parameter to the createRefContactsFromCapContactsAndLink function.
+ * Takes a single peopleModel as a parameter, and returns the sequence number of the first G6Contact result. 
+ * Returns null if there are no matches
+ * 
+ * **Notes:**
+ * 
+ * To use attributes, you must implement Salesforce case 09ACC-05048.
+ * @param {peopleModel} peop The peopleModel object containing the criteria.
+ * @returns {number | null} The sequence number of the first G6Contact result, or null if there are no matches.
+ */
+
+function comparePeopleGeneric(peop) {
+
+    if(typeof peop == "undefined" || !peop){
+        logDebug("'comparePeopleGeneric' requires parameter 'peop' be set" );
+        return null;
+    }
+
 	peop.setAuditDate(null)
 	peop.setAuditID(null)
 	peop.setAuditStatus(null)
@@ -2860,22 +4253,27 @@ function comparePeopleGeneric(peop)
 	peop.setSocialSecurityNumber(null)
 	peop.setTitle(null)
 	peop.setTradeName(null)
+
 	var r = aa.people.getPeopleByPeopleModel(peop);
-    if (!r.getSuccess())
-			{ logDebug("WARNING: error searching for people : " + r.getErrorMessage()); return false; }
+
+	if (!r.getSuccess()) {
+		logDebug("WARNING: error searching for people : " + r.getErrorMessage());
+		return false;
+	}
+
 	var peopResult = r.getOutput();
-	if (peopResult.length == 0)
-		{
+
+	if (peopResult.length == 0) {
 		logDebug("Searched for REF contact, no matches found, returing null");
 		return null;
-		}
-	if (peopResult.length > 0)
-		{
-		logDebug("Searched for a REF Contact, " + peopResult.length + " matches found! returning the first match : " + peopResult[0].getContactSeqNumber() );
-		return peopResult[0].getContactSeqNumber()
-		}
+	}
+
+	if (peopResult.length > 0) {
+		logDebug("Searched for a REF Contact, " + peopResult.length + " matches found! returning the first match : " + peopResult[0].getContactSeqNumber());
+		return peopResult[0].getContactSeqNumber();
+	}
+
 } 
- 
 /**
  * Uses the close match criteria configured in Agency Profile > Standard Choices stored in the 
  * INDIVIDUAL_CONTACT_MATCH_CRITERIA and ORGANIZATION_CONTACT_MATCH_CRITERIA to check the reference 
@@ -2891,9 +4289,11 @@ function comparePeopleGeneric(peop)
  * @return {ContactSeqNumber}
  *   
  */
+
 function comparePeopleMatchCriteria(ipPeop)
 {
 	var fvContType = ipPeop.getContactType();
+
 	var fvCriteriaStdChoice = "INDIVIDUAL_CONTACT_MATCH_CRITERIA";
 	// default to individual unless flag is Org
 	if (fvContType == "Organization")
@@ -2904,6 +4304,7 @@ function comparePeopleMatchCriteria(ipPeop)
 	{
 		fvCriteriaStdChoice = "ORGANIZATION_CONTACT_MATCH_CRITERIA";
 	}
+
 	//Add agency specific logic here if needed
 	var fvBizDomainSR = aa.bizDomain.getBizDomain(fvCriteriaStdChoice);
 	if (!fvBizDomainSR || !fvBizDomainSR.getSuccess())
@@ -2917,12 +4318,14 @@ function comparePeopleMatchCriteria(ipPeop)
 			logDebug("No criteria defined in Standard Choice '" + fvCriteriaStdChoice + "'.");
 			return null;
 	}
+
 	for(var fvCounter1 = 0; fvCounter1 < fvBizDomain.size(); fvCounter1++)
 	{
 		var fvCloseMatchCriteriaObj = fvBizDomain.get(fvCounter1);
 		var fvCriteriaStr = fvCloseMatchCriteriaObj.getDispBizdomainValue();
 		if (!fvCriteriaStr || fvCriteriaStr == "")
 			continue;
+
 		var fvPeop = aa.people.createPeopleModel().getOutput().getPeopleModel();
 		//make sure we are retrieving only active contacts
         fvPeop.setAuditStatus("A");
@@ -2946,18 +4349,21 @@ function comparePeopleMatchCriteria(ipPeop)
 			logDebug("WARNING: One or more Values for the Fields defined in this Criteria are null. Skipping this criteria.");
 			continue;
 		}
+
 		var fvResult = aa.people.getPeopleByPeopleModel(fvPeop);
 		if ( !fvResult.getSuccess())
 		{
 			logDebug("WARNING: Error searching for duplicate contacts : " + fvResult.getErrorMessage());
 			continue;
 		}
+
 		var fvPeopResult = fvResult.getOutput();
 		if (fvPeopResult.length == 0)
 		{
 			logDebug("Searched for REF contact, no matches found.");
 			continue;
 		}
+
 		if (fvPeopResult.length > 0)
 		{
 			logDebug("Searched for a REF Contact, " + fvPeopResult.length + " matches found! returning the first match : " + fvPeopResult[0].getContactSeqNumber());
@@ -2967,9 +4373,10 @@ function comparePeopleMatchCriteria(ipPeop)
 	logDebug("No matches found. Returning Null.");
 	return null;
 } 
- 
+
 function comparePeopleStandard(peop)
 	{
+
 	/* 
 	
 		this function will be passed as a parameter to the createRefContactsFromCapContactsAndLink function.
@@ -2985,6 +4392,7 @@ function comparePeopleStandard(peop)
 		This function can use attributes if desired
 	*/
 	
+
 	if (peop.getSocialSecurityNumber() || peop.getFein())
 		{
 		var qryPeople = aa.people.createPeopleModel().getOutput().getPeopleModel();
@@ -2996,6 +4404,7 @@ function comparePeopleStandard(peop)
 		var r = aa.people.getPeopleByPeopleModel(qryPeople);
 		
 		if (!r.getSuccess())  { logDebug("WARNING: error searching for people : " + r.getErrorMessage()); return false; }
+
 		var peopResult = r.getOutput();
 		
 		if (peopResult.length > 0)
@@ -3013,15 +4422,20 @@ function comparePeopleStandard(peop)
 	
 		logDebug("we have an email, checking on that");
 		qryPeople.setEmail(peop.getEmail());
+
 		var r = aa.people.getPeopleByPeopleModel(qryPeople);
+
 		if (!r.getSuccess())  { logDebug("WARNING: error searching for people : " + r.getErrorMessage()); return false; }
+
 		var peopResult = r.getOutput();
+
 		if (peopResult.length > 0)
 			{
 			logDebug("Searched for a REF Contact, " + peopResult.length + " matches found! returning the first match : " + peopResult[0].getContactSeqNumber() );
 			return peopResult[0].getContactSeqNumber();
 			}
 		}
+
 	if (peop.getBirthDate() && peop.getLastName() && peop.getFirstName())
 		{
 		var qryPeople = aa.people.createPeopleModel().getOutput().getPeopleModel();		
@@ -3030,9 +4444,13 @@ function comparePeopleStandard(peop)
 		qryPeople.setLastName(peop.getLastName());
 		qryPeople.setFirstName(peop.getFirstName());
 		qryPeople.setMiddleName(peop.getMiddleName());
+
 		var r = aa.people.getPeopleByPeopleModel(qryPeople);
+
 		if (!r.getSuccess())  { logDebug("WARNING: error searching for people : " + r.getErrorMessage()); return false; }
+
 		var peopResult = r.getOutput();
+
 		if (peopResult.length > 0)
 			{
 			logDebug("Searched for a REF Contact, " + peopResult.length + " matches found! returning the first match : " + peopResult[0].getContactSeqNumber() );
@@ -3044,21 +4462,18 @@ function comparePeopleStandard(peop)
 		return false;
 	}
  
- /**
-  * 
-  * @param {*} userId 
-  * @returns 
-  */
 function completeCAP(userId) // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ 	logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage());
 			return false; }
 	
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ 	logDebug("**ERROR: No cap detail script object") ;
 			return false; }
@@ -3066,11 +4481,13 @@ function completeCAP(userId) // option CapId
 	cd = cdScriptObj.getCapDetailModel();
 	
 	iNameResult  = aa.person.getUser(userId);
+
 	if (!iNameResult.getSuccess())
 		{ 	logDebug("**ERROR retrieving  user model " + userId + " : " + iNameResult.getErrorMessage()) ;
 			return false ; }
 	
 	iName = iNameResult.getOutput();
+
 	cd.setCompleteDept(iName.getDeptOfUser());
 	cd.setCompleteStaff(userId);
 	cdScriptObj.setCompleteDate(sysDate);
@@ -3087,7 +4504,6 @@ function completeCAP(userId) // option CapId
 		return false ; 
 	}
 } 
- 
 function contactAddFromUser(pUserId)
 	{
 	// Retrieves user's reference Contact record and adds to CAP
@@ -3167,7 +4583,6 @@ function contactAddFromUser(pUserId)
 	} 
 	
  
- 
 /**
 * Contact Object 
 * <p>
@@ -3239,7 +4654,9 @@ function contactAddFromUser(pUserId)
 * @param ccsm {CapContactScriptModel}
 * @return {contactObj}
 */
+
 function contactObj(ccsm)  {
+
     this.people = null;         // for access to the underlying data
     this.capContact = null;     // for access to the underlying data
     this.capContactScript = null;   // for access to the underlying data
@@ -3289,6 +4706,7 @@ function contactObj(ccsm)  {
                     }
 				}
 			}
+
 			// contact attributes
 			// Load People Template Fields
             if (this.people.getAttributes() != null) {
@@ -3305,16 +4723,21 @@ function contactObj(ccsm)  {
 				
 				for (var i = 0; i < this.customFieldsObj.size(); i++) {
 					var eachForm = this.customFieldsObj.get(i);
+
 					//Sub Group
 					var subGroup = eachForm.subgroups;
+
 					if (subGroup == null) {
 						continue;
 					}
+
 					for (var j = 0; j < subGroup.size(); j++) {
 						var eachSubGroup = subGroup.get(j);
+
 						if (eachSubGroup == null || eachSubGroup.fields == null) {
 							continue;
 						}
+
 						var allFields = eachSubGroup.fields;
 						for (var k = 0; k < allFields.size(); k++) {
 							var eachField = allFields.get(k);
@@ -3326,6 +4749,7 @@ function contactObj(ccsm)  {
 				}
 			}
         }  
+
         //this.primary = this.capContact.getPrimaryFlag().equals("Y");
         this.relation = this.people.relation;
         this.seqNumber = this.people.contactSeqNumber;
@@ -3356,6 +4780,7 @@ function contactObj(ccsm)  {
             if(!matches(includeContactName,null,undefined,"")) { vIncludeContactName = true }
             if(!matches(includeBusinessName,null,undefined,"")){ vIncludeBusinessName = true }
             if(!matches(includeTradeName,null,undefined,"")) { vIncludeTradeName = true }
+
 			if (vIncludeContactName && this.people.getLastName() != null && this.people.getFirstName() != null){
                 vContactName = this.people.getFirstName() + " " + this.people.getLastName()
                 bFLName = true;
@@ -3443,6 +4868,7 @@ function contactObj(ccsm)  {
                     return true;
                     }
                 }
+
                 var tmpCapId = this.capContact.getCapID();
                 var tmpType = this.type;
                 this.people.setContactType(newType);
@@ -3456,6 +4882,7 @@ function contactObj(ccsm)  {
                 this.type = tmpType;
                 return true;
         }
+
         this.equals = function(t) {
             if (t == null) return false;
             if (!String(this.people.type).equals(String(t.people.type))) { return false; }
@@ -3521,6 +4948,7 @@ function contactObj(ccsm)  {
 			}
             
 		}
+
         //get method for Attributes
         this.getAttribute = function (vAttributeName){
             var retVal = null;
@@ -3565,16 +4993,21 @@ function contactObj(ccsm)  {
 				
 				for (var i = 0; i < this.customFieldsObj.size(); i++) {
 					var eachForm = this.customFieldsObj.get(i);
+
 					//Sub Group
 					var subGroup = eachForm.subgroups;
+
 					if (subGroup == null) {
 						continue;
 					}
+
 					for (var j = 0; j < subGroup.size(); j++) {
 						var eachSubGroup = subGroup.get(j);
+
 						if (eachSubGroup == null || eachSubGroup.fields == null) {
 							continue;
 						}
+
 						var allFields = eachSubGroup.fields;
 						for (var k = 0; k < allFields.size(); k++) {
 							var eachField = allFields.get(k);
@@ -3589,6 +5022,7 @@ function contactObj(ccsm)  {
             }
             return retVal;
         }
+
         this.remove = function() {
             var removeResult = aa.people.removeCapContact(this.capId, this.seqNumber)
             if (removeResult.getSuccess())
@@ -3596,6 +5030,7 @@ function contactObj(ccsm)  {
             else
                 logDebug("(contactObj) error removing contact : " + this + " : from record " + this.capId.getCustomID() + " : " + removeResult.getErrorMessage());
             }
+
         this.isSingleAddressPerType = function() {
             if (this.addresses.length > 1) 
                 {
@@ -3606,11 +5041,13 @@ function contactObj(ccsm)  {
                     thisAddr = this.addresses[y];
                     addrTypeCount[thisAddr.addressType] = 0;
                     }
+
                 for (yy in this.addresses) 
                     {
                     thisAddr = this.addresses[yy];
                     addrTypeCount[thisAddr.addressType] += 1;
                     }
+
                 for (z in addrTypeCount) 
                     {
                     if (addrTypeCount[z] > 1) 
@@ -3621,8 +5058,11 @@ function contactObj(ccsm)  {
                 {
                 return true;    
                 }
+
             return true;
+
             }
+
         this.getAddressTypeCounts = function() { //returns an associative array of how many adddresses are attached.
            
             var addrTypeCount = new Array();
@@ -3632,16 +5072,22 @@ function contactObj(ccsm)  {
                 thisAddr = this.addresses[y];
                 addrTypeCount[thisAddr.addressType] = 0;
                 }
+
             for (yy in this.addresses) 
                 {
                 thisAddr = this.addresses[yy];
                 addrTypeCount[thisAddr.addressType] += 1;
                 }
+
             return addrTypeCount;
+
             }
+
         this.createPublicUser = function() {
+
             if (!this.capContact.getEmail())
             { logDebug("(contactObj) Couldn't create public user for : " + this +  ", no email address"); return false; }
+
             if (String(this.people.getContactTypeFlag()).equals("organization"))
             { logDebug("(contactObj) Couldn't create public user for " + this + ", the contact is an organization"); return false; }
             
@@ -3651,6 +5097,7 @@ function contactObj(ccsm)  {
                 userModel = getUserResult.getOutput();
                 logDebug("(contactObj) createPublicUserFromContact: Found an existing public user: " + userModel.getUserID());
             }
+
             if (!userModel) // create one
                 {
                 logDebug("(contactObj) CreatePublicUserFromContact: creating new user based on email address: " + this.capContact.getEmail()); 
@@ -3663,16 +5110,21 @@ function contactObj(ccsm)  {
                 publicUser.setAuditID("PublicUser");
                 publicUser.setAuditStatus("A");
                 publicUser.setCellPhone(this.people.getPhone2());
+
                 var result = aa.publicUser.createPublicUser(publicUser);
                 if (result.getSuccess()) {
+
                 logDebug("(contactObj) Created public user " + this.capContact.getEmail() + "  sucessfully.");
                 var userSeqNum = result.getOutput();
                 var userModel = aa.publicUser.getPublicUser(userSeqNum).getOutput()
+
                 // create for agency
                 aa.publicUser.createPublicUserForAgency(userModel);
+
                 // activate for agency
                 var userPinBiz = aa.proxyInvoker.newInstance("com.accela.pa.pin.UserPINBusiness").getOutput()
                 userPinBiz.updateActiveStatusAndLicenseIssueDate4PublicUser(aa.getServiceProviderCode(),userSeqNum,"ADMIN");
+
                 // reset password
                 var resetPasswordResult = aa.publicUser.resetPassword(this.capContact.getEmail());
                 if (resetPasswordResult.getSuccess()) {
@@ -3682,8 +5134,10 @@ function contactObj(ccsm)  {
                 } else {
                     logDebug("(contactObj **WARNING: Reset password for  " + this.capContact.getEmail() + "  failure:" + resetPasswordResult.getErrorMessage());
                 }
+
                 // send Activate email
                 aa.publicUser.sendActivateEmail(userModel, true, true);
+
                 // send another email
                 aa.publicUser.sendPasswordEmail(userModel);
                 }
@@ -3691,6 +5145,7 @@ function contactObj(ccsm)  {
                     logDebug("(contactObj) **WARNIJNG creating public user " + this.capContact.getEmail() + "  failure: " + result.getErrorMessage()); return null;
                 }
             }
+
         //  Now that we have a public user let's connect to the reference contact       
             
         if (this.refSeqNumber)
@@ -3699,8 +5154,10 @@ function contactObj(ccsm)  {
             aa.licenseScript.associateContactWithPublicUser(userModel.getUserSeqNum(), this.refSeqNumber);
             }
             
+
         return userModel; // send back the new or existing public user
         }
+
         this.getCaps = function() { // option record type filter
 			var resultArray = new Array();
         
@@ -3709,10 +5166,12 @@ function contactObj(ccsm)  {
                 var capTypes = "*/*/*/*";
                 
                 if (arguments.length == 1) capTypes = arguments[0];
+
                 var pm = aa.people.createPeopleModel().getOutput().getPeopleModel(); 
                 var ccb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.people.CapContactDAOOracle").getOutput(); 
                 pm.setServiceProviderCode(aa.getServiceProviderCode()) ; 
                 pm.setContactSeqNumber(this.refSeqNumber); 
+
                 var cList = ccb.getCapContactsByRefContactModel(pm).toArray();
                 
                 for (var j in cList) {
@@ -3725,16 +5184,19 @@ function contactObj(ccsm)  {
             
         return resultArray;
         }
+
         this.getRelatedContactObjs = function() { // option record type filter
         
             if (this.refSeqNumber) {
                 var capTypes = null;
                 var resultArray = new Array();
                 if (arguments.length == 1) capTypes = arguments[0];
+
                 var pm = aa.people.createPeopleModel().getOutput().getPeopleModel(); 
                 var ccb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.people.CapContactDAOOracle").getOutput(); 
                 pm.setServiceProviderCode(aa.getServiceProviderCode()) ; 
                 pm.setContactSeqNumber(this.refSeqNumber); 
+
                 var cList = ccb.getCapContactsByRefContactModel(pm).toArray();
                 
                 for (var j in cList) {
@@ -3800,6 +5262,7 @@ function contactObj(ccsm)  {
 			{
 			  logDebug("(contactObj.getRelatedRefLicProfObjs) Some Parameters were empty - unable to get related LPs");
 			}
+
 		}
 		
 		this.linkRefContactWithRefLicProf = function(licnumber, lictype){
@@ -3848,6 +5311,7 @@ function contactObj(ccsm)  {
 			{
 			  logDebug("(contactObj.linkRefContactWithRefLicProf) Some Parameters are empty - License professional failed to link to reference contact.");
 			}
+
 		}
         
         this.createRefLicProf = function(licNum,rlpType,addressType,licenseState) {
@@ -3870,10 +5334,12 @@ function contactObj(ccsm)  {
 			else{
 				newLic = aa.licenseScript.createLicenseScriptModel();
 			}
+
             if (refLicProf) {
                 updating = true;
                 logDebug("(contactObj) Updating existing Ref Lic Prof : " + licNum);
              }
+
             peop = this.people;
             cont = this.capContact;
             if (cont.getFirstName() != null) newLic.setContactFirstName(cont.getFirstName());
@@ -3911,6 +5377,7 @@ function contactObj(ccsm)  {
             if (!matches(agencyLong,undefined,null,"")) newLic.setLicenseBoard(agencyLong); else newLic.setLicenseBoard("");
  
             var addr = null;
+
             if (addressType) {
                 for (var i in this.addresses) {
                     var cAddr = this.addresses[i];
@@ -3951,6 +5418,7 @@ function contactObj(ccsm)  {
 					this.linkRefContactWithRefLicProf(licNum,rlpType,serv_prov_code_4_lp);
 				}
 			}
+
             if (arguments.length == 5) {
                 aa.resetDelegateAgencyCode();
             }
@@ -3988,6 +5456,7 @@ function contactObj(ccsm)  {
             var args = new Array();
             var akaModel = aa.proxyInvoker.newInstance("com.accela.orm.model.contact.PeopleAKAModel",args).getOutput();
             var auditModel = aa.proxyInvoker.newInstance("com.accela.orm.model.common.AuditModel",args).getOutput();
+
             var a = aka.getPeopleAKAListByContactNbr(aa.getServiceProviderCode(),String(this.refSeqNumber));
             akaModel.setServiceProviderCode(aa.getServiceProviderCode());
             akaModel.setContactNumber(parseInt(this.refSeqNumber));
@@ -4002,8 +5471,10 @@ function contactObj(ccsm)  {
             auditModel.setAuditID("ADMIN");
             akaModel.setAuditModel(auditModel);
             a.add(akaModel);
+
             aka.saveModels(aa.getServiceProviderCode(), this.refSeqNumber, a);
             }
+
         this.removeAKA = function(firstName,middleName,lastName) {
             if (!this.refSeqNumber) {
                 logDebug("contactObj: Cannot remove AKA name for non-reference contact");
@@ -4027,6 +5498,7 @@ function contactObj(ccsm)  {
             if (removed)
                 aka.saveModels(aa.getServiceProviderCode(), this.refSeqNumber, l);
             }
+
         this.hasPublicUser = function() { 
             if (this.refSeqNumber == null) return false;
             var s_publicUserResult = aa.publicUser.getPublicUserListByContactNBR(aa.util.parseLong(this.refSeqNumber));
@@ -4042,14 +5514,17 @@ function contactObj(ccsm)  {
                 }
             } else { logMessage("**ERROR: Failed to get public user by contact number: " + s_publicUserResult.getErrorMessage()); return false; }
         }
+
         this.linkToPublicUser = function(pUserId) { 
            
             if (pUserId != null) {
                 var pSeqNumber = pUserId.replace('PUBLICUSER','');
                 
                 var s_publicUserResult = aa.publicUser.getPublicUser(aa.util.parseLong(pSeqNumber));
+
                 if (s_publicUserResult.getSuccess()) {
                     var linkResult = aa.licenseScript.associateContactWithPublicUser(pSeqNumber, this.refSeqNumber);
+
                     if (linkResult.getSuccess()) {
                         logDebug("Successfully linked public user " + pSeqNumber + " to contact " + this.refSeqNumber);
                     } else {
@@ -4061,57 +5536,71 @@ function contactObj(ccsm)  {
                     return false;
                 }
 
+
             } else {
                 logDebug("No public user id provided");
                 return false;
             }
         }
+
         this.sendCreateAndLinkNotification = function() {
             //for the scenario in AA where a paper application has been submitted
             var toEmail = this.people.getEmail();
+
             if (toEmail) {
                 var params = aa.util.newHashtable();
                 getACARecordParam4Notification(params,acaUrl);
                 addParameter(params, "$$licenseType$$", cap.getCapType().getAlias());
                 addParameter(params,"$$altID$$",capIDString);
                 var notificationName;
+
                 if (this.people.getContactTypeFlag() == "individual") {
                     notificationName = this.people.getFirstName() + " " + this.people.getLastName();
                 } else {
                     notificationName = this.people.getBusinessName();
                 }
+
                 if (notificationName)
                     addParameter(params,"$$notificationName$$",notificationName);
                 if (this.refSeqNumber) {
                     var v = new verhoeff();
                     var pinCode = v.compute(String(this.refSeqNumber));
                     addParameter(params,"$$pinCode$$",pinCode);
+
                     sendNotification(agencyReplyEmail,toEmail,"","PUBLICUSER CREATE AND LINK",params,null);                    
                 }
+
                                
             }
+
         }
+
         this.getRelatedRefContacts = function() { //Optional relationship types array 
             
             var relTypes;
             if (arguments.length > 0) relTypes = arguments[0];
             
             var relConsArray = new Array();
+
             if (matches(this.refSeqNumber,null,undefined,"")) return relConsArray;
+
             //check as the source
             var xrb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.people.XRefContactEntityBusiness").getOutput();
             xRefContactEntityModel = aa.people.getXRefContactEntityModel().getOutput();
             xRefContactEntityModel.setContactSeqNumber(parseInt(this.refSeqNumber));
             x = xrb.getXRefContactEntityList(xRefContactEntityModel);
 
+
             if (x.size() > 0) {
                 var relConList = x.toArray();
+
                 for (var zz in relConList) {
                     var thisRelCon = relConList[zz];
                     var addThisCon = true;
                     if (relTypes) {
                         addThisCon = exists(thisRelCon.getEntityID4(),relTypes);
                     }
+
                     if (addThisCon) {
                         var peopResult = aa.people.getPeople(thisRelCon.getEntityID1());
                         if (peopResult.getSuccess()) {
@@ -4119,21 +5608,26 @@ function contactObj(ccsm)  {
                             relConsArray.push(peop);
                         }
                     }
+
                 }
             }
+
             //check as the target
             var xrb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.people.XRefContactEntityBusiness").getOutput();
             xRefContactEntityModel = aa.people.getXRefContactEntityModel().getOutput();
             xRefContactEntityModel.setEntityID1(parseInt(this.refSeqNumber));
             x = xrb.getXRefContactEntityList(xRefContactEntityModel);
+
             if (x.size() > 0) {
                 var relConList = x.toArray();
+
                 for (var zz in relConList) {
                     var thisRelCon = relConList[zz];
                     var addThisCon = true;
                     if (relTypes) {
                         addThisCon = exists(thisRelCon.getEntityID4(),relTypes);
                     }
+
                     if (addThisCon) {
                         var peopResult = aa.people.getPeople(thisRelCon.getContactSeqNumber());
                         if (peopResult.getSuccess()) {
@@ -4141,8 +5635,10 @@ function contactObj(ccsm)  {
                             relConsArray.push(peop);
                         }
                     }
+
                 }
             }           
+
             return relConsArray;
         }
 		
@@ -4197,6 +5693,7 @@ function contactObj(ccsm)  {
 			if(!matches(emailAddress,undefined,null,"")) 
 				this.capContact.setEmail(emailAddress);
 		}
+
 		this.editPhone = function(phone1,phone2,phone3,fax) {
 			if(!matches(phone1,undefined,null,"")) 
 				this.capContact.setPhone1(phone1);
@@ -4207,6 +5704,7 @@ function contactObj(ccsm)  {
 			if(!matches(fax,undefined,null,"")) 
 				this.capContact.setFax(fax);
 		}
+
 		this.editContactAddress = function(addressType, addr1, addr2, addr3, city, state, zip, phone, country, primary, effectiveDate, expirationDate, addressStatus, overwrite){
 		var casm;
 		var vOverwrite = (matches(overwrite,"N","No",false)) ? false : true;
@@ -4291,159 +5789,210 @@ function contactObj(ccsm)  {
 						convertedContactAddressList = convertContactAddressModelArr(contactAddressList);
 						this.people.setContactAddressList(convertedContactAddressList);
 			}
+
 		}
+
 		
     }
  
+//@ts-check
+
+/**
+ * Sets the supplied contact to be the primary contact on the current record
+ * @param {number} pContactNbr Sequence number of the contact to make primary.
+ * @returns {boolean} FALSE if error, TRUE if success
+ */
+
+function contactSetPrimary(pContactNbr) {
+    if (typeof capId === typeof undefined || !capId) {
+        logDebug("'contactSetPrimary' requires global 'capId' be defined.");
+        return false;
+    }
+
+    // Makes contact the Primary Contact
+    // 06SSP-00186
+    if (pContactNbr == null) {
+        logDebug("**ERROR: ContactNbr parameter is null");
+        return false;
+    } else {
+        var capContactResult = aa.people.getCapContactByPK(capId, pContactNbr);
+        if (capContactResult.getSuccess()) {
+            var contact = capContactResult.getOutput();
+            //logDebug("contact class is "+contact.getClass());
+            var peopleObj = contact.getCapContactModel().getPeople();
+            peopleObj.setFlag("Y");
+            contact.getCapContactModel().setPeople(peopleObj);
+            var editResult = aa.people.editCapContact(contact.getCapContactModel());
+            if (editResult.getSuccess()) {
+                logDebug("Contact successfully set to Primary");
+                return true;
+            } else {
+                logDebug("**ERROR: Could not set contact to Primary: " + editResult.getErrorMessage());
+                return false;
+            }
+        } else {
+            logDebug("**ERROR: Can't get contact: " + capContactResult.getErrorMessage());
+            return false;
+        }
+    }
+}
  
-function contactSetPrimary(pContactNbr)
-	{
-	// Makes contact the Primary Contact
-	// 06SSP-00186
-	//
-	if (pContactNbr==null)
-		{
-		logDebug("**ERROR: ContactNbr parameter is null");
-		return false;
-		}
-	else
-		{
-		var capContactResult = aa.people.getCapContactByPK(capId, pContactNbr);
-		if (capContactResult.getSuccess())
-			{
-			var contact = capContactResult.getOutput();
-			//logDebug("contact class is "+contact.getClass());
-			var peopleObj=contact.getCapContactModel().getPeople();
-			peopleObj.setFlag("Y");
-			contact.getCapContactModel().setPeople(peopleObj);
-			var editResult = aa.people.editCapContact(contact.getCapContactModel());
-			if (editResult.getSuccess())
-				{
-				logDebug("Contact successfully set to Primary");
-				return true;
-				}
-			else
-				{
-				logDebug("**ERROR: Could not set contact to Primary: "+editResult.getErrorMessage());
-				return false;
-				}
-			}
-		else
-			{
-			logDebug("**ERROR: Can't get contact: "+capContactResult.getErrorMessage());
-			return false;
-			}
-		}
-	}
-	
- 
- 
-function contactSetRelation(pContactNbr, pRelation)
-	{
+//@ts-check
+
+/**
+ * Sets the relationship code on the supplied contact, on the current record.
+ * @param {number} pContactNbr - Sequence number of the contact.
+ * @param {string} pRelation - Set to this relationship code.
+ * @returns {boolean} TRUE if success, FALSE if error
+ */
+
+function contactSetRelation(pContactNbr, pRelation) {
 	// Edits Contact Relationship for specified Contact
 	//06SSP-00186
-	//
-	if (pContactNbr==null)
-		{
-		logDebug("ContactNbr parameter is null");
+    try {
+        aa.cap.getCap(capId);
+    } catch (err) {
+        logDebug("'contactSetRelation' requires global 'capId' be defined");
+        return false;
+    }
+	if (typeof pContactNbr == "undefined" || pContactNbr == null) {
+		logDebug("'contactSetRelation' parameter 'pContactNbr' is required");
 		return false;
-		}
-	else
-		{
+	}
+	if (typeof pRelation == "undefined" || pRelation == null || pRelation == "") {
+		logDebug("'contactSetRelation' parameter 'pRelation' is required");
+		return false;
+	} else {
 		var capContactResult = aa.people.getCapContactByPK(capId, pContactNbr);
-		if (capContactResult.getSuccess())
-			{
+		if (capContactResult.getSuccess()) {
 			var contact = capContactResult.getOutput();
 			//logDebug("contact class is "+contact.getClass());
-			var peopleObj=contact.getCapContactModel().getPeople();
+			var peopleObj = contact.getCapContactModel().getPeople();
 			peopleObj.setRelation(pRelation);
 			contact.getCapContactModel().setPeople(peopleObj);
 			var editResult = aa.people.editCapContact(contact.getCapContactModel());
-			if (editResult.getSuccess())
-				{
-				logDebug("Contact relationship successfully changed to "+pRelation);
+			if (editResult.getSuccess()) {
+				logDebug("Contact relationship successfully changed to " + pRelation);
 				return true;
-				}
-			else
-				{
-				logDebug("**ERROR: Could not change contact relationship: "+editResult.getErrorMessage());
+			} else {
+				logDebug("**ERROR: Could not change contact relationship: " + editResult.getErrorMessage());
 				return false;
-				}
 			}
-		else
-			{
-			logDebug("**ERROR: Can't get contact: "+capContactResult.getErrorMessage());
+		} else {
+			logDebug("**ERROR: Can't get contact: " + capContactResult.getErrorMessage());
 			return false;
-			}
 		}
 	}
- 
+}
  
  function convertContactAddressModelArr(contactAddressScriptModelArr)
+
 {
+
 	var contactAddressModelArr = null;
+
 	if(contactAddressScriptModelArr != null && contactAddressScriptModelArr.length > 0)
+
 	{
+
 		contactAddressModelArr = aa.util.newArrayList();
+
 		for(loopk in contactAddressScriptModelArr)
+
 		{
+
 			contactAddressModelArr.add(contactAddressScriptModelArr[loopk].getContactAddressModel());
+
 		}
+
 	}	
+
 	return contactAddressModelArr;
+
 }
 
+
+
  
- 
-function convertDate(thisDate)
-	{
-	if (typeof(thisDate) == "string")
-		{
+//@ts-check
+
+/**
+ * Will attempt to convert the supplied parameter representing a date to a javascript date.
+ * If a string is supplied it must be in a format that JS Date Constructor can recognize.
+ * Accepts:
+ *  - com.accela.aa.emse.dom.ScriptDateTime
+ *  - com.accela.aa.emse.util.ScriptDateTime
+ *  - class java.util.Date
+ *  - java.lang.String (see above conserning format)
+ *  - java.sql.Timestamp
+ *  - number (assumes milliseconds)
+ * 
+ * @param {object} thisDate The date to convert.
+ * @returns {Date | false} Returns the date in javascript format or false if it encounters an error.
+ */
+
+function convertDate(thisDate) {
+
+	if (typeof (thisDate) == "string") {
 		var retVal = new Date(String(thisDate));
-		if (!retVal.toString().equals("Invalid Date"))
+		if (!retVal.toString().equals("Invalid Date")) {
 			return retVal;
 		}
-	if (typeof(thisDate)== "object")
-		{
-		if (!thisDate.getClass) // object without getClass, assume that this is a javascript date already
-			{
-			return thisDate;
-			}
-		if (thisDate.getClass().toString().equals("class com.accela.aa.emse.dom.ScriptDateTime"))
-			{
-			return new Date(thisDate.getMonth() + "/" + thisDate.getDayOfMonth() + "/" + thisDate.getYear());
-			}
-			
-		if (thisDate.getClass().toString().equals("class com.accela.aa.emse.util.ScriptDateTime"))
-			{
-			return new Date(thisDate.getMonth() + "/" + thisDate.getDayOfMonth() + "/" + thisDate.getYear());
-			}			
-		if (thisDate.getClass().toString().equals("class java.util.Date"))
-			{
-			return new Date(thisDate.getTime());
-			}
-		if (thisDate.getClass().toString().equals("class java.lang.String"))
-			{
-			return new Date(String(thisDate));
-			}
-		if (thisDate.getClass().toString().equals("class java.sql.Timestamp"))
-			{
-			return new Date(thisDate.getMonth() + "/" + thisDate.getDate() + "/" + thisDate.getYear());
-			}
-		}
-	if (typeof(thisDate) == "number")
-		{
-		return new Date(thisDate);  // assume milliseconds
-		}
-	logDebug("**WARNING** convertDate cannot parse date : " + thisDate);
-	return null;
 	}
+
+	// TODO - next version perform check on result against 'Invalid Date' as above.
+	if (typeof (thisDate) == "object") {
+
+		if (!thisDate.getClass) {
+			// object without getClass, assume that this is a javascript date already
+			return thisDate;
+		}
+
+		if (thisDate.getClass().toString().equals("class com.accela.aa.emse.dom.ScriptDateTime")) {
+			return new Date(thisDate.getMonth() + "/" + thisDate.getDayOfMonth() + "/" + thisDate.getYear());
+		}
+
+		if (thisDate.getClass().toString().equals("class com.accela.aa.emse.util.ScriptDateTime")) {
+			return new Date(thisDate.getMonth() + "/" + thisDate.getDayOfMonth() + "/" + thisDate.getYear());
+		}
+
+		if (thisDate.getClass().toString().equals("class java.util.Date")) {
+			return new Date(thisDate.getTime());
+		}
+
+		if (thisDate.getClass().toString().equals("class java.lang.String")) {
+			return new Date(String(thisDate));
+		}
+
+		if (thisDate.getClass().toString().equals("class java.sql.Timestamp")) {
+			return new Date(thisDate.getMonth() + "/" + thisDate.getDate() + "/" + thisDate.getYear());
+		}
+	}
+
+	if (typeof (thisDate) == "number") {
+		return new Date(thisDate);  // assume milliseconds
+	}
+
+	logDebug("**WARNING** convertDate cannot parse date : " + thisDate);
+	return false;
+
+}
  
- 
+//@ts-check
+
+/**
+ * Converts the string to phone codes (A=1, D=3, etc), useful with the setIVR function.
+ * 
+ * @param {string} theString String containing information to convert.
+ * @returns {string} A string with the converted phone code.
+ */
+
 function convertStringToPhone(theString) {
 	var n = "22233344455566677778889999";
+
 	var compString = String(theString.toUpperCase());
 	var retString = "";
+
 	for (var x = 0; x < compString.length; x++) {
 		if (compString[x] >= "A" && compString[x] <= "Z") {
 			retString += n[compString.charCodeAt(x) - 65]
@@ -4454,94 +6003,119 @@ function convertStringToPhone(theString) {
 	return retString;
 }
  
- 
-function copyAddresses(pFromCapId, pToCapId)
-	{
+//@ts-check
+
+/**
+ * Copies all property addresses from record pFromCapId to record pToCapId. If record pToCapId has a
+ * primary address, any primary address in pFromCapId becomes non-primary when copied over.
+ *
+ * @param {object} pFromCapId ID of record from which to copy.
+ * @param {object} pToCapId ID of record to which to copy. If null, the function uses the current record.
+ * @returns {number | boolean} Returns the number of copied addressess or false if encounters an error
+ */
+
+function copyAddresses(pFromCapId, pToCapId) {
 	//Copies all property addresses from pFromCapId to pToCapId
 	//If pToCapId is null, copies to current CAP
 	//07SSP-00037/SP5017
-	//
-	if (pToCapId==null)
+
+	if (pToCapId == null) {
 		var vToCapId = capId;
-	else
+	} else {
 		var vToCapId = pToCapId;
+	}
+	if (typeof vToCapId === typeof undefined) {
+		logDebug("'copyAddresses' - when 'pToCapId' is not defined global 'capId' is required.");
+		return false;
+	}
+
 	//check if target CAP has primary address
 	var priAddrExists = false;
 	var capAddressResult = aa.address.getAddressByCapId(vToCapId);
-	if (capAddressResult.getSuccess())
-		{
-		Address = capAddressResult.getOutput();
-		for (yy in Address)
-			{
-			if ("Y"==Address[yy].getPrimaryFlag())
-				{
+	if (capAddressResult.getSuccess()) {
+		var Address = capAddressResult.getOutput();
+		for (var yy in Address) {
+			if ("Y" == Address[yy].getPrimaryFlag()) {
 				priAddrExists = true;
 				logDebug("Target CAP has primary address");
 				break;
-				}
 			}
 		}
-	else
-		{
+	} else {
 		logMessage("**ERROR: Failed to get addresses: " + capAddressResult.getErrorMessage());
 		return false;
-		}
+	}
+
 	//get addresses from originating CAP
 	var capAddressResult = aa.address.getAddressWithAttributeByCapId(pFromCapId);
 	var copied = 0;
-	if (capAddressResult.getSuccess())
-		{
+	if (capAddressResult.getSuccess()) {
 		Address = capAddressResult.getOutput();
-		for (yy in Address)
-			{
-			newAddress = Address[yy];
+		for (var yy in Address) {
+			var newAddress = Address[yy];
 			newAddress.setCapID(vToCapId);
-			if (priAddrExists)
-				newAddress.setPrimaryFlag("N"); //prevent target CAP from having more than 1 primary address
-			aa.address.createAddressWithAPOAttribute(vToCapId, newAddress);
-			logDebug("Copied address from "+pFromCapId.getCustomID()+" to "+vToCapId.getCustomID());
-			copied++;
+			if (priAddrExists) {
+				//prevent target CAP from having more than 1 primary address
+				newAddress.setPrimaryFlag("N");
 			}
+			aa.address.createAddressWithAPOAttribute(vToCapId, newAddress);
+			logDebug("Copied address from " + pFromCapId.getCustomID() + " to " + vToCapId.getCustomID());
+			copied++;
 		}
-	else
-		{
+	} else {
 		logMessage("**ERROR: Failed to get addresses: " + capAddressResult.getErrorMessage());
 		return false;
-		}
-	return copied;
 	}
+	return copied;
+}
+
 
  
- 
-function copyAppSpecific(newCap) // copy all App Specific info into new Cap, 1 optional parameter for ignoreArr
-{
+//@ts-check
+
+/**
+ * Copies all app spec info values from current record to the record whose record ID object is newCap. If the
+ * target record does not have the same app specific info field, the does not copy the value.
+ *
+ * @param {object} newCap ID of target record (copy to this record).
+ * @param {[string]} [ignoreArr] (optional) - Array of ASI labels ignore and not copy.
+ */
+
+function copyAppSpecific(newCap) {
+
+	if (typeof AInfo === typeof undefined) {
+		logDebug("'copyAppSpecific' global value 'AInfo' must be defined.");
+		return false;
+	}
+
+	// copy all App Specific info into new Cap, 1 optional parameter for ignoreArr
 	var ignoreArr = new Array();
 	var limitCopy = false;
-	if (arguments.length > 1) 
-	{
+	if (arguments.length > 1) {
 		ignoreArr = arguments[1];
 		limitCopy = true;
 	}
-	
-	for (asi in AInfo){
+
+	for (var asi in AInfo) {
 		//Check list
-		if(limitCopy){
-			var ignore=false;
-		  	for(var i = 0; i < ignoreArr.length; i++)
-		  		if(ignoreArr[i] == asi){
-		  			ignore=true;
-		  			break;
-		  		}
-		  	if(ignore)
-		  		continue;
+		if (limitCopy) {
+			var ignore = false;
+			for (var i = 0; i < ignoreArr.length; i++) {
+				if (ignoreArr[i] == asi) {
+					ignore = true;
+					break;
+				}
+			}
+			if (ignore) {
+				continue;
+			}
 		}
-		editAppSpecific(asi,AInfo[asi],newCap);
+		editAppSpecific(asi, AInfo[asi], newCap);
 	}
-}
- 
- 
+} 
 function copyAppSpecific4ACA(capFrom) { // copy all App Specific info into new Cap
 var i= capFrom.getAppSpecificInfoGroups().iterator();
+
     while (i.hasNext())
     {
          var group = i.next();
@@ -4552,6 +6126,7 @@ var i= capFrom.getAppSpecificInfoGroups().iterator();
             while (iteFields.hasNext())
             {
                  var field = iteFields.next();
+
                     if (useAppSpecificGroupName)
                             editAppSpecific4ACA(field.getCheckboxType() + "." + field.getCheckboxDesc(),field.getChecklistComment());
                     else
@@ -4561,41 +6136,66 @@ var i= capFrom.getAppSpecificInfoGroups().iterator();
     }
 }
  
- 
-function copyASIFields(sourceCapId,targetCapId)  // optional groups to ignore
-	{
+//@ts-check
+
+/**
+ * Copies all ASI fields from the sourceCapId record to the targetCapId record with the exception of the ASI
+ * subgroups listed in optional third parameter (array of string)
+ *
+ * @param {object} sourceCapId ID of record from which to copy.
+ * @param {object} targetCapId ID of record to which to copy.
+ * @param {string} [ignoreArray] optional - ASI subgroups to ignore during the copy.
+ * @returns {boolean | undefined} FALSE in some error conditions, otherwise, nothing is returned 
+ * ---
+ * **Notes**
+ * This function moves the ASI fields themselves, not the values. You can add an ASI group to a record that
+ * did not previously include the ASI group. This function does not copy the form portlet designer settings,
+ * which can cause problems.
+ * 
+ */
+
+function copyASIFields(sourceCapId, targetCapId) {
+	// optional groups to ignore
 	var ignoreArray = new Array();
-	for (var i=2; i<arguments.length;i++)
+	for (var i = 2; i < arguments.length; i++) {
 		ignoreArray.push(arguments[i])
+	}
+	if (typeof sourceCapId == "undefined" || sourceCapId == null || typeof targetCapId == "undefined" || targetCapId == null) {
+		logDebug("'copyASIFields' requires CapIDs in parameters 'sourceCapId' and 'targetCapId' ");
+		return false;
+	}
+
 	var targetCap = aa.cap.getCap(targetCapId).getOutput();
 	var targetCapType = targetCap.getCapType();
 	var targetCapTypeString = targetCapType.toString();
 	var targetCapTypeArray = targetCapTypeString.split("/");
+
 	var sourceASIResult = aa.appSpecificInfo.getByCapID(sourceCapId)
-	if (sourceASIResult.getSuccess())
-		{ var sourceASI = sourceASIResult.getOutput(); }
-	else
-		{ aa.print( "**ERROR: getting source ASI: " + sourceASIResult.getErrorMessage()); return false }
-	for (ASICount in sourceASI)
-		  {
-		  thisASI = sourceASI[ASICount];
-		  if (!exists(thisASI.getCheckboxType(),ignoreArray))
-		       {
-		       thisASI.setPermitID1(targetCapId.getID1())
-		       thisASI.setPermitID2(targetCapId.getID2())
-		       thisASI.setPermitID3(targetCapId.getID3())
-		       thisASI.setPerType(targetCapTypeArray[1])
-		       thisASI.setPerSubType(targetCapTypeArray[2])
-		       aa.cap.createCheckbox(thisASI)
-		       }
-  		  }
+
+	if (sourceASIResult.getSuccess()) {
+		var sourceASI = sourceASIResult.getOutput();
+	} else {
+		logDebug("**ERROR: getting source ASI: " + sourceASIResult.getErrorMessage());
+		return false;
 	}
- 
- 
+
+	for (var ASICount in sourceASI) {
+		var thisASI = sourceASI[ASICount];
+		if (!exists(thisASI.getCheckboxType(), ignoreArray)) {
+			thisASI.setPermitID1(targetCapId.getID1())
+			thisASI.setPermitID2(targetCapId.getID2())
+			thisASI.setPermitID3(targetCapId.getID3())
+			thisASI.setPerType(targetCapTypeArray[1])
+			thisASI.setPerSubType(targetCapTypeArray[2])
+			aa.cap.createCheckbox(thisASI)
+		}
+	}
+} 
 function copyASITables(pFromCapId, pToCapId) {
 	// Function dependencies on addASITable()
 	// par3 is optional 0 based string array of table to ignore
 	var itemCap = pFromCapId;
+
 	var gm = aa.appSpecificTableScript.getAppSpecificTableGroupModel(itemCap).getOutput();
 	var ta = gm.getTablesArray()
 		var tai = ta.iterator();
@@ -4608,10 +6208,12 @@ function copyASITables(pFromCapId, pToCapId) {
 	}
 	while (tai.hasNext()) {
 		var tsm = tai.next();
+
 		var tempObject = new Array();
 		var tempArray = new Array();
 		var tn = tsm.getTableName() + "";
 		var numrows = 0;
+
 		//Check list
 		if (limitCopy) {
 			var ignore = false;
@@ -4639,134 +6241,232 @@ function copyASITables(pFromCapId, pToCapId) {
 				}
 				var tcol = tsmcoli.next();
 				var tval = tsmfldi.next();
+
 				var readOnly = 'N';
 				if (readOnlyi.hasNext()) {
 					readOnly = readOnlyi.next();
 				}
+
 				var fieldInfo = new asiTableValObj(tcol.getColumnName(), tval, readOnly);
 				tempObject[tcol.getColumnName()] = fieldInfo;
 				//tempObject[tcol.getColumnName()] = tval;
 			}
+
 			tempArray.push(tempObject); // end of record
 		}
+
 		addASITable(tn, tempArray, pToCapId);
 		logDebug("ASI Table Array : " + tn + " (" + numrows + " Rows)");
 	}
 } 
- 
-function copyCalcVal(fromcap,newcap)
-	{
+//@ts-check
+
+/**
+ * Copies the calculated job value from the current record to the record whose record ID object is pToCapId.
+ * 
+ * @param {object} fromcap ID of record from which to copy.
+ * @param {object} newcap ID of record to which to copy.
+ */
+
+function copyCalcVal(fromcap, newcap) {
 	// 8/8/2008 JHS  creatBCalcValuatn method began using the script model after 6.4  updated this function
-	if (!newcap)
-		{ logMessage("**WARNING: copyCalcVal was passed a null new cap ID"); return false; }
-	var valResult = aa.finance.getCalculatedValuation(fromcap,null);
-	if (valResult.getSuccess())
+	if (typeof newcap == "undefined" || newcap == null || typeof fromcap == "undefined" || fromcap == null) {
+		logMessage("'copyCalcVal' requires CapIDs for parameters fromcap and 'newcap'");
+		return false;
+	}
+
+	var valResult = aa.finance.getCalculatedValuation(fromcap, null);
+	if (valResult.getSuccess()) {
 		var valArray = valResult.getOutput();
-	else
-		{ logMessage("**ERROR: Failed to get calc val array: " + valResult.getErrorMessage()); return false; }
-	for (thisCV in valArray)
-		{
+	} else {
+		logMessage("**ERROR: Failed to get calc val array: " + valResult.getErrorMessage());
+		return false;
+	}
+
+	for (var thisCV in valArray) {
 		var bcv = valArray[thisCV];
 		bcv.setCapID(newcap);
-		createResult = aa.finance.createBCalcValuatn(bcv);
-		if (!createResult.getSuccess())
-			{ logMessage("**ERROR: Creating new calc valuatn on target cap ID: " + createResult.getErrorMessage()); return false; }
+		var createResult = aa.finance.createBCalcValuatn(bcv);
+		if (!createResult.getSuccess()) {
+			logMessage("**ERROR: Creating new calc valuatn on target cap ID: " + createResult.getErrorMessage());
+			return false;
 		}
 	}
+}
  
- 
-function copyConditions(fromCapId) // optional toCapID
-{
+//@ts-check
+
+/**
+ * Copies all conditions from record capId to the current record (if you do not specify toCapId) or the specified record.
+ * @param {CapIDModel} fromCapId ID of record from which to copy.
+ * @param {CapIDModel} [toCapId] Optional - The ID of the record to which to copy conditions. 
+ * @returns {boolean}
+ */
+
+// optional toCapID
+function copyConditions(fromCapId) {
+
 	var itemCap = capId;
-	if (arguments.length == 2)
+	if (arguments.length == 2){
 		itemCap = arguments[1]; // use cap ID specified in args
+    }
+    try {
+        aa.cap.getCap(itemCap);
+        aa.cap.getCap(fromCapId);
+    } catch (err) {
+        logDebug("'copyConditions' requires Source CapID param and global 'capId' OR Target CapID param be defined");
+        return false;
+    }
+    var l_sysDate = (typeof sysDate == "undefined" || sysDate == null) ? aa.date.getCurrentDate() : sysDate;
+    var l_currentUserID = (typeof currentUserID == "undefined" || currentUserID == null) ? null : currentUserID;
+    if(!l_currentUserID && aa.env.getValue("currentUserID") != ""){
+        l_currentUserID = aa.env.getValue("currentUserID");
+    } else if(!l_currentUserID && aa.env.getValue("currentUserID") == ""){
+        logDebug("'copyConditions' global 'currentUserID' OR  environment variable 'currentUserID' must be defined");
+        return false;
+    }
+
+
 	var getFromCondResult = aa.capCondition.getCapConditions(fromCapId);
-	if (getFromCondResult.getSuccess())
+	if (getFromCondResult.getSuccess()) {
 		var condA = getFromCondResult.getOutput();
-	else {
+    } else {
 		logDebug("**ERROR: getting cap conditions: " + getFromCondResult.getErrorMessage());
-		return false
+		return false;
 	}
-	for (cc in condA) {
+
+	for (var cc in condA) {
 		var thisC = condA[cc];
-		var addCapCondResult = aa.capCondition.addCapCondition(itemCap, thisC.getConditionType(), thisC.getConditionDescription(), thisC.getConditionComment(), thisC.getEffectDate(), thisC.getExpireDate(), sysDate, thisC.getRefNumber1(), thisC.getRefNumber2(), thisC.getImpactCode(), thisC.getIssuedByUser(), thisC.getStatusByUser(), thisC.getConditionStatus(), currentUserID, String("A"), null, thisC.getDisplayConditionNotice(), thisC.getIncludeInConditionName(), thisC.getIncludeInShortDescription(), thisC.getInheritable(), thisC.getLongDescripton(), thisC.getPublicDisplayMessage(), thisC.getResolutionAction(), null, null, thisC.getReferenceConditionNumber(), thisC.getConditionGroup(), thisC.getDisplayNoticeOnACA(), thisC.getDisplayNoticeOnACAFee(), thisC.getPriority(), thisC.getConditionOfApproval());
-		if (addCapCondResult.getSuccess())
+
+		var addCapCondResult = aa.capCondition.addCapCondition(itemCap, thisC.getConditionType(), thisC.getConditionDescription(), thisC.getConditionComment(), thisC.getEffectDate(), thisC.getExpireDate(), l_sysDate, thisC.getRefNumber1(), thisC.getRefNumber2(), thisC.getImpactCode(), thisC.getIssuedByUser(), thisC.getStatusByUser(), thisC.getConditionStatus(), l_currentUserID, String("A"), null, thisC.getDisplayConditionNotice(), thisC.getIncludeInConditionName(), thisC.getIncludeInShortDescription(), thisC.getInheritable(), thisC.getLongDescripton(), thisC.getPublicDisplayMessage(), thisC.getResolutionAction(), null, null, thisC.getReferenceConditionNumber(), thisC.getConditionGroup(), thisC.getDisplayNoticeOnACA(), thisC.getDisplayNoticeOnACAFee(), thisC.getPriority(), thisC.getConditionOfApproval());
+		if (addCapCondResult.getSuccess()) {
 			logDebug("Successfully added condition (" + thisC.getImpactCode() + ") " + thisC.getConditionDescription());
-		else
+        } else {
 			logDebug("**ERROR: adding condition (" + cImpact + "): " + addCapCondResult.getErrorMessage());
+        }
 	}
-} 
+	return true;
+}
  
-function copyConditionsFromParcel(parcelIdString)
-		{
-		var getFromCondResult = aa.parcelCondition.getParcelConditions(parcelIdString)
-		if (getFromCondResult.getSuccess())
-			var condA = getFromCondResult.getOutput();
-		else
-			{ logDebug( "**WARNING: getting parcel conditions: " + getFromCondResult.getErrorMessage()) ; return false}
-			
-		for (cc in condA)
-			{
-			var thisC = condA[cc];
-			
-			if (!appHasCondition(thisC.getConditionType(),null,thisC.getConditionDescription(),thisC.getImpactCode()))
-				{
-				var addCapCondResult = aa.capCondition.addCapCondition(capId, thisC.getConditionType(), thisC.getConditionDescription(), thisC.getConditionComment(), thisC.getEffectDate(), thisC.getExpireDate(), sysDate, thisC.getRefNumber1(),thisC.getRefNumber2(), thisC.getImpactCode(), thisC.getIssuedByUser(), thisC.getStatusByUser(), thisC.getConditionStatus(), currentUserID, "A", thisC.getConditionStatusType(),thisC.getDisplayConditionNotice(),thisC.getIncludeInConditionName(),thisC.getIncludeInShortDescription(),thisC.getInheritable(),thisC.getLongDescripton(),thisC.getPublicDisplayMessage(),thisC.getResolutionAction(),null,null,thisC.getConditionNumber(),thisC.getConditionGroup(),thisC.getDisplayNoticeOnACA(),thisC.getDisplayNoticeOnACAFee());
-				if (addCapCondResult.getSuccess())
-					logDebug("Successfully added condition (" +  thisC.getImpactCode() + ") " +  thisC.getConditionDescription());
-				else
-					logDebug( "**ERROR: adding condition (" + thisC.getImpactCode() + "): " + addCapCondResult.getErrorMessage());
-				}
-			else
-				logDebug( "**WARNING: adding condition (" + thisC.getImpactCode() + "): condition already exists");
-				
-			}
-		}
+//@ts-check
+
+/**
+ * Copies conditions from the reference parcel parcelIdString and adds them 
+ * as conditions to the current record (not to parcels on the current record).
+ * @param {string} parcelIdString Parcel number of source parcel.
+ * @returns {boolean}
+ */
+
+function copyConditionsFromParcel(parcelIdString) {
+	if (typeof capId === typeof undefined || !capId) {
+		logDebug("'copyConditionsFromParcel' requires global 'capId' be defined.");
+		return false;
+	}
+	var getFromCondResult = aa.parcelCondition.getParcelConditions(parcelIdString)
+	if (getFromCondResult.getSuccess()){
+		var condA = getFromCondResult.getOutput();
+    } else {
+        logDebug("**WARNING: getting parcel conditions: " + getFromCondResult.getErrorMessage()); 
+        return false 
+    }
+
+	for (var cc in condA) {
+		var thisC = condA[cc];
+
+		if (!appHasCondition(thisC.getConditionType(), null, thisC.getConditionDescription(), thisC.getImpactCode())) {
+            // TODO : 'aa.capCondition.addCapCondition' is Deprecated
+			var addCapCondResult = aa.capCondition.addCapCondition(capId, thisC.getConditionType(), thisC.getConditionDescription(), thisC.getConditionComment(), thisC.getEffectDate(), thisC.getExpireDate(), sysDate, thisC.getRefNumber1(), thisC.getRefNumber2(), thisC.getImpactCode(), thisC.getIssuedByUser(), thisC.getStatusByUser(), thisC.getConditionStatus(), currentUserID, "A", thisC.getConditionStatusType(), thisC.getDisplayConditionNotice(), thisC.getIncludeInConditionName(), thisC.getIncludeInShortDescription(), thisC.getInheritable(), thisC.getLongDescripton(), thisC.getPublicDisplayMessage(), thisC.getResolutionAction(), null, null, thisC.getConditionNumber(), thisC.getConditionGroup(), thisC.getDisplayNoticeOnACA(), thisC.getDisplayNoticeOnACAFee());
+			if (addCapCondResult.getSuccess()){
+				logDebug("Successfully added condition (" + thisC.getImpactCode() + ") " + thisC.getConditionDescription());
+            } else {
+				logDebug("**ERROR: adding condition (" + thisC.getImpactCode() + "): " + addCapCondResult.getErrorMessage());
+            }
+		} else {
+			logDebug("**WARNING: adding condition (" + thisC.getImpactCode() + "): condition already exists");
+        }
+	}
+	return true;
+}
  
- 
+//@ts-check
+
+/**
+ * Copies all contacts from record pFromCapId to record pToCapId.
+ * 
+ * **Notes**:
+ * 
+ * If target record has a primary contact and the source record also has a primary contact, 
+ * the target recordends up with 2 primary contacts. 
+ * 
+ * Functions that return a Cap ID object
+ * - getApplication( )
+ * - getParent( )
+ * - createChild()
+ * - createCap() 
+ *
+ * 
+ * ---
+ * **Global variables**:
+ * - capId
+ * ---
+ * 
+ * @param {CapIDModel} pFromCapId ID of record from which to copy.
+ * @param {CapIDModel} [pToCapId] (Optional) ID of record to which to copy. If null, the function uses the current record.
+ * @returns {number | false} the amount of contacts that were copied, false otherwise(or in case of error)
+ */
 function copyContacts(pFromCapId, pToCapId) {
-	//Copies all contacts from pFromCapId to pToCapId
-	//07SSP-00037/SP5017
-	//
-	if (pToCapId == null)
-		var vToCapId = capId;
-	else
-		var vToCapId = pToCapId;
+	if (!pToCapId && (typeof capId === typeof undefined || capId === null)){
+		logDebug("'copyContacts' Error: Required global variable 'capId' or optional param 'pToCapId' not defined");
+		return false;
+	}
+
+	var vToCapId = pToCapId || capId;
+
 	var capContactResult = aa.people.getCapContactByCapID(pFromCapId);
 	var copied = 0;
-	if (capContactResult.getSuccess()) {
-		var Contacts = capContactResult.getOutput();
-		for (yy in Contacts) {
-			var newContact = Contacts[yy].getCapContactModel();
-			// Retrieve contact address list and set to related contact
-			var contactAddressrs = aa.address.getContactAddressListByCapContact(newContact);
-			if (contactAddressrs.getSuccess()) {
-				var contactAddressModelArr = convertContactAddressModelArr(contactAddressrs.getOutput());
-				newContact.getPeople().setContactAddressList(contactAddressModelArr);
-			}
-			newContact.setCapID(vToCapId);
-			// Create cap contact, contact address and contact template
-			aa.people.createCapContactWithAttribute(newContact);
-			copied++;
-			logDebug("Copied contact from " + pFromCapId.getCustomID() + " to " + vToCapId.getCustomID());
-		}
-	} else {
+	var Contacts;
+
+	if(!capContactResult.getSuccess()){
 		logMessage("**ERROR: Failed to get contacts: " + capContactResult.getErrorMessage());
 		return false;
 	}
+	Contacts = capContactResult.getOutput();
+
+	for (var contactsIdx in Contacts) {
+		var newContact = Contacts[contactsIdx].getCapContactModel();
+
+		// Retrieve contact address list and set to related contact
+		var contactAddressrs = aa.address.getContactAddressListByCapContact(newContact);
+		if (contactAddressrs.getSuccess()) {
+			var contactAddressModelArr = convertContactAddressModelArr(contactAddressrs.getOutput());
+			newContact.getPeople().setContactAddressList(contactAddressModelArr);
+		}
+		newContact.setCapID(vToCapId);
+
+		// Create cap contact, contact address and contact template
+		aa.people.createCapContactWithAttribute(newContact);
+		copied++;
+		logDebug("Copied contact from " + pFromCapId.getCustomID() + " to " + vToCapId.getCustomID());
+	}
 	return copied;
 }
+
+/**
+ * From a list of contact adresses returns a list of the models for each one
+ * 
+ * @param {Array<ContactAdress>} contactAddressScriptModelArr 
+ * @returns {Array<ContactAdressModel> | null}
+ */
 function convertContactAddressModelArr(contactAddressScriptModelArr) {
 	var contactAddressModelArr = null;
 	if (contactAddressScriptModelArr != null && contactAddressScriptModelArr.length > 0) {
 		contactAddressModelArr = aa.util.newArrayList();
-		for (loopk in contactAddressScriptModelArr) {
+		for (var loopk in contactAddressScriptModelArr) {
 			contactAddressModelArr.add(contactAddressScriptModelArr[loopk].getContactAddressModel());
 		}
 	}
 	return contactAddressModelArr;
 } 
- 
 function copyContactsByType(pFromCapId, pToCapId, pContactType)
 	{
 	//Copies all contacts from pFromCapId to pToCapId
@@ -4801,265 +6501,396 @@ function copyContactsByType(pFromCapId, pToCapId, pContactType)
 		}
 	return copied;
 	} 
- 
  function copyEducation(srcCapId, targetCapId)
+
 {
+
     if(srcCapId != null && targetCapId != null)
+
     {
+
         aa.education.copyEducationList(srcCapId, targetCapId);
+
     }
+
 }
  
- 
-function copyFees(sourceCapId,targetCapId)
-	{
-	var feeSeqArray = new Array();
-	var invoiceNbrArray = new Array();
-	var feeAllocationArray = new Array();
+//@ts-check
+
+/**
+ * Copies all fees from record sourceCapId to record targetCapId. Excludes voided or credited fees.
+ * @param {object} sourceCapId ID of record from which to copy fees.
+ * @param {object} targetCapId ID of record to which to copy.
+ * @returns {boolean | undefined} FALSE in some error conditions, otherwise, returns nothing
+ */
+
+function copyFees(sourceCapId, targetCapId) {
+
+	try {
+        aa.cap.getCap(sourceCapId);
+        aa.cap.getCap(targetCapId);
+    } catch (err) {
+        logDebug("'copyFees' requires Source CapID param and Target CapID param be defined");
+        return false;
+    }
+
+	// var feeSeqArray = new Array();
+	// var paymentPeriodArray = new Array();
+	// var invoiceNbrArray = new Array();
+	// var feeAllocationArray = new Array();
+
 	var feeA = loadFees(sourceCapId)
-	for (x in feeA)
-		{
-		thisFee = feeA[x];
-		
+
+	for (var x in feeA) {
+		var thisFee = feeA[x];
 		logMessage("We have a fee " + thisFee.code + " status : " + thisFee.status);
-		
-		if (thisFee.status == "INVOICED")
-			{
-			addFee(thisFee.code,thisFee.sched,thisFee.period,thisFee.unit,"Y",targetCapId)
+
+		if (thisFee.status == "INVOICED") {
+			addFee(thisFee.code, thisFee.sched, thisFee.period, thisFee.unit, "Y", targetCapId);
 			var feeSeqArray = new Array();
 			var paymentPeriodArray = new Array();
 			feeSeqArray.push(thisFee.sequence);
 			paymentPeriodArray.push(thisFee.period);
 			var invoiceResult_L = aa.finance.createInvoice(sourceCapId, feeSeqArray, paymentPeriodArray);
-			if (!invoiceResult_L.getSuccess())
-				aa.print("**ERROR: Invoicing the fee items voided " + thisFee.code + " was not successful.  Reason: " +  invoiceResult_L.getErrorMessage());
-			}
 
-		if (thisFee.status == "NEW")
-			{
-			addFee(thisFee.code,thisFee.sched,thisFee.period,thisFee.unit,"N",targetCapId)
+			if (!invoiceResult_L.getSuccess()) {
+				aa.print("**ERROR: Invoicing the fee items voided " + thisFee.code + " was not successful.  Reason: " + invoiceResult_L.getErrorMessage());
 			}
 		}
+
+		if (thisFee.status == "NEW") {
+			addFee(thisFee.code, thisFee.sched, thisFee.period, thisFee.unit, "N", targetCapId)
+		}
+
 	}
+
+}
  
- 
-function copyLicensedProf(sCapId, tCapId)
-{
+//@ts-check
+
+/**
+ * Copies all licensed professionals from sCapId to record tCapId.
+ * @param {object} sCapId ID of record from which to copy licensed professionals.
+ * @param {object} tCapId ID of record to which to copy.
+ */
+
+function copyLicensedProf(sCapId, tCapId) {
+    try{
+        aa.cap.getCap(sCapId);
+        aa.cap.getCap(tCapId);
+    } catch(err){
+        logDebug("'copyLicensedProf' requires both parameters for Source CAP and Target CAP");
+        return;
+    }
 	//Function will copy all licensed professionals from source CapID to target CapID
-	var licProf = aa.licenseProfessional.getLicensedProfessionalsByCapID(sCapId).getOutput();
-	if (licProf != null)
-		for(x in licProf)
-		{
+    var licProf = aa.licenseProfessional.getLicensedProfessionalsByCapID(sCapId).getOutput();
+
+	if (licProf != null) {
+		for (var x in licProf) {
 			licProf[x].setCapID(tCapId);
 			aa.licenseProfessional.createLicensedProfessional(licProf[x]);
 			logDebug("Copied " + licProf[x].getLicenseNbr());
 		}
-	else
+	} else {
 		logDebug("No licensed professional on source");
+	}
+
 }
  
- 
-//Function will copy all owners from source CAP (sCapID) to target CAP (tCapId)
-function copyOwner(sCapID, tCapID)
-{ 
+//@ts-check
+
+/**
+ * Copies a contacts from sCapID to tCapID.
+ * @param {object} sCapID ID of record from which to copy.
+ * @param {object} tCapID ID of record to which to copy.
+ */
+
+function copyOwner(sCapID, tCapID) {
+    try{
+        aa.cap.getCap(sCapID);
+        aa.cap.getCap(tCapID);
+    } catch(err){
+        logDebug("'copyOwner' requires both parameters for Source CAP and Target CAP");
+        return;
+    }
 	var ownrReq = aa.owner.getOwnerByCapId(sCapID);
-	if(ownrReq.getSuccess())
-	{
+	if (ownrReq.getSuccess()) {
 		var ownrObj = ownrReq.getOutput();
-        if(ownrObj != null){
-			for (xx in ownrObj)
-			{
+		if (ownrObj != null) {
+			for (var xx in ownrObj) {
 				ownrObj[xx].setCapID(tCapID);
 				aa.owner.createCapOwnerWithAPOAttribute(ownrObj[xx]);
 				logDebug("Copied Owner: " + ownrObj[xx].getOwnerFullName());
 			}
-		}else{
+		} else {
 			logDebug("Error Copying Owner : " + ownrObj.getErrorType() + " : " + ownrObj.getErrorMessage());
 		}
-	}else{ 
+	} else {
 		logDebug("Warning: No owners exist to copy");
 	}
-} 
+}
  
-function copyOwnersByParcel()
-{
-	//get parcel(s) by capid
-	var parcels = aa.parcel.getParcelDailyByCapID(capId,null);
-	
-	if(parcels.getSuccess())
-	{
-		 parcels = parcels.getOutput();
-		 if(parcels == null || parcels.length == 0) 
-		 {
-		   	logDebug("No parcels available for this record");
-		 }
-		 else
-		 {
-		    //get owner(s) by parcel(s)
-		    for (var i =0; i< parcels.length; i++)
-		    {
-				var parcelOwnersResult = aa.owner.getOwnersByParcel(parcels[i]);
-				var parcelNbr = parcels[i].getParcelNumber();
-				var parcelUID = parcels[i].getParcelModel().getUID();
-				if (parcelOwnersResult.getSuccess())
-				{
-						var actuallyParcelNumber = parcelNbr != null?parcelNbr:parcelUID;
-						//aa.print("Successfully get owner(s) by Parcel "+actuallyParcelNumber+". Detail as follow:");
-						var ownerArr = parcelOwnersResult.getOutput();
-						//aa.print("Size :" + ownerArr.length);
-						for (j = 0; j < ownerArr.length; j++)
-						{
-							ownerArr[j].setCapID(capId);
-							aa.owner.createCapOwnerWithAPOAttribute(ownerArr[j]);
-						}		
-				}
-				else
-				{
-						logDebug("ERROR: Failed to get owner(s) by Parcel(s): " + parcelOwnersResult.getErrorMessage());
-				}
-		    }
-		 }
-	} 
-} 
+//@ts-check
+
+/**
+ * Copies reference owners from all attached parcels to the current record.
+ * 
+ * ---
+ * **Global Variable**:
+ * - capId
+ */
+
+
+function copyOwnersByParcel() {
+
+    try {
+        aa.cap.getCap(capId);
+    } catch (err) {
+        logDebug("'copyOwnersByParcel' requires global 'capId' be defined");
+        return;
+    }
+
+    //get parcel(s) by capid
+    var parcels = aa.parcel.getParcelDailyByCapID(capId, null);
+
+    if (parcels.getSuccess()) {
+        parcels = parcels.getOutput();
+        if (parcels == null || parcels.length == 0) {
+            logDebug("No parcels available for this record");
+        } else {
+            //get owner(s) by parcel(s)
+            for (var i = 0; i < parcels.length; i++) {
+                var parcelOwnersResult = aa.owner.getOwnersByParcel(parcels[i]);
+                var parcelNbr = parcels[i].getParcelNumber();
+                var parcelUID = parcels[i].getParcelModel().getUID();
+
+                if (parcelOwnersResult.getSuccess()) {
+                    var actuallyParcelNumber = parcelNbr != null ? parcelNbr : parcelUID;
+                    //aa.print("Successfully get owner(s) by Parcel "+actuallyParcelNumber+". Detail as follow:");
+                    var ownerArr = parcelOwnersResult.getOutput();
+                    //aa.print("Size :" + ownerArr.length);
+                    for (var j = 0; j < ownerArr.length; j++) {
+                        ownerArr[j].setCapID(capId);
+                        aa.owner.createCapOwnerWithAPOAttribute(ownerArr[j]);
+                    }
+                } else {
+                    logDebug("ERROR: Failed to get owner(s) by Parcel(s): " + parcelOwnersResult.getErrorMessage());
+                }
+            }
+        }
+    }
+}
  
-function copyParcelGisObjects() 
-	{
-	var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
-	if (capParcelResult.getSuccess())
-		{
+//@ts-check
+
+/**
+ * Copies parcel GIS objects to the record.
+ * @returns {boolean | undefined} FALSE in some error conditions, otherwise, nothing is returned
+ */
+
+function copyParcelGisObjects() {
+    try {
+        aa.cap.getCap(capId);
+    } catch (err) {
+        logDebug("'copyParcelGisObjects' requires global 'capId' be defined");
+        return false;
+    }
+	var capParcelResult = aa.parcel.getParcelandAttribute(capId, null);
+	if (capParcelResult.getSuccess()) {
 		var Parcels = capParcelResult.getOutput().toArray();
-		for (zz in Parcels)
-			{
+		for (var zz in Parcels) {
+
 			var ParcelValidatedNumber = Parcels[zz].getParcelNumber();
 			logDebug("Looking at parcel " + ParcelValidatedNumber);
 			var gisObjResult = aa.gis.getParcelGISObjects(ParcelValidatedNumber); // get gis objects on the parcel number
-			if (gisObjResult.getSuccess()) 	
+			if (gisObjResult.getSuccess()) {
 				var fGisObj = gisObjResult.getOutput();
-			else
-				{ logDebug("**WARNING: Getting GIS objects for Parcel.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
-			for (a1 in fGisObj) // for each GIS object on the Cap
-				{
+			} else {
+				logDebug("**WARNING: Getting GIS objects for Parcel.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage());
+				return false;
+			}
+
+			for (var a1 in fGisObj) {
+				// for each GIS object on the Cap
 				var gisTypeScriptModel = fGisObj[a1];
-                                var gisObjArray = gisTypeScriptModel.getGISObjects()
-                                for (b1 in gisObjArray)
-                                	{
-  					var gisObjScriptModel = gisObjArray[b1];
-  					var gisObjModel = gisObjScriptModel.getGisObjectModel() ;
-					var retval = aa.gis.addCapGISObject(capId,gisObjModel.getServiceID(),gisObjModel.getLayerId(),gisObjModel.getGisId());
-					if (retval.getSuccess())
-						{ logDebug("Successfully added Cap GIS object: " + gisObjModel.getGisId())}
-					else
-						{ logDebug("**WARNING: Could not add Cap GIS Object.  Reason is: " + retval.getErrorType() + ":" + retval.getErrorMessage()) ; return false }	
+				var gisObjArray = gisTypeScriptModel.getGISObjects();
+
+				for (var b1 in gisObjArray) {
+					var gisObjScriptModel = gisObjArray[b1];
+					var gisObjModel = gisObjScriptModel.getGisObjectModel();
+					var retval = aa.gis.addCapGISObject(capId, gisObjModel.getServiceID(), gisObjModel.getLayerId(), gisObjModel.getGisId());
+
+					if (retval.getSuccess()) {
+						logDebug("Successfully added Cap GIS object: " + gisObjModel.getGisId());
+					} else {
+						logDebug("**WARNING: Could not add Cap GIS Object.  Reason is: " + retval.getErrorType() + ":" + retval.getErrorMessage());
+						return false;
 					}
 				}
 			}
-		}	
-	else
-		{ logDebug("**ERROR: Getting Parcels from Cap.  Reason is: " + capParcelResult.getErrorType() + ":" + capParcelResult.getErrorMessage()) ; return false }
+		}
+	} else {
+		logDebug("**ERROR: Getting Parcels from Cap.  Reason is: " + capParcelResult.getErrorType() + ":" + capParcelResult.getErrorMessage());
+		return false;
 	}
+}
  
- 
-function copyParcels(pFromCapId, pToCapId)
-	{
+//@ts-check
+
+/**
+ * Copies all parcels, and parcel attributes, from record pFromCapId to record pToCapId.
+ * getApplication( ), getParent( ), createChild(), createCap() functions each return a record ID object.
+ * @param {CapIDModel} pFromCapId ID of record from which to copy.
+ * @param {CapIDModel} [pToCapId] ID of record to which to copy. If null, the function uses the current record.
+ * @returns {boolean | number} FALSE in some error conditions. Number equal to number of parcels coppied.
+ *  * 
+ * ---
+ * **Notes**
+ * capId is the record ID object for the current record.
+ * getApplication( ), getParent( ), createChild(), createCap() functions each return a record ID object.
+ */
+
+function copyParcels(pFromCapId, pToCapId) {
 	//Copies all parcels from pFromCapId to pToCapId
 	//If pToCapId is null, copies to current CAP
 	//07SSP-00037/SP5017
 	//
-	if (pToCapId==null)
-		var vToCapId = capId;
-	else
-		var vToCapId = pToCapId;
-				
-	var capParcelResult = aa.parcel.getParcelandAttribute(pFromCapId,null);
+    var vToCapId = pToCapId;
+	if (typeof vToCapId == "undefined" || vToCapId == null) {
+        vToCapId = capId;
+    }
+    try {
+        aa.cap.getCap(pFromCapId);
+        aa.cap.getCap(vToCapId);
+    } catch (err) {
+        logDebug("'copyParcels' requires Source CapID param and Target CapID param OR global 'capId' be defined");
+        return false;
+    }
+    
+	var capParcelResult = aa.parcel.getParcelandAttribute(pFromCapId, null);
 	var copied = 0;
-	if (capParcelResult.getSuccess())
-		{
+	if (capParcelResult.getSuccess()) {
 		var Parcels = capParcelResult.getOutput().toArray();
-		for (zz in Parcels)
-			{
+		for (var zz in Parcels) {
 			var newCapParcel = aa.parcel.getCapParcelModel().getOutput();
 			newCapParcel.setParcelModel(Parcels[zz]);
 			newCapParcel.setCapIDModel(vToCapId);
 			newCapParcel.setL1ParcelNo(Parcels[zz].getParcelNumber());
 			newCapParcel.setParcelNo(Parcels[zz].getParcelNumber());
 			aa.parcel.createCapParcel(newCapParcel);
-			logDebug("Copied parcel "+Parcels[zz].getParcelNumber()+" from "+pFromCapId.getCustomID()+" to "+vToCapId.getCustomID());
+			logDebug("Copied parcel " + Parcels[zz].getParcelNumber() + " from " + pFromCapId.getCustomID() + " to " + vToCapId.getCustomID());
 			copied++;
-			}
 		}
-	else
-		{
-		logMessage("**ERROR: Failed to get parcels: " + capParcelResult.getErrorMessage()); 
-		return false; 
-		}
+	}
+	else {
+		logMessage("**ERROR: Failed to get parcels: " + capParcelResult.getErrorMessage());
+		return false;
+	}
 	return copied;
-	} 
+}
  
-function copySchedInspections(pFromCapId, pToCapId)
-	{
+//@ts-check
+
+/**
+ * Copies all scheduled inspections from record pFromCapId to record pToCapId
+ * @param {CapIDModel} pFromCapId ID of record from which to copy.
+ * @param {CapIDModel} pToCapId ID of record to which to copy. If null, the function uses the current record.
+ * @returns {boolean | number} FALSE in some error conditions, otherwise, count of Insp copied
+ * ---
+ * **Notes**
+ * Includes inspections that have a pending-type result, but copies status over as Scheduled. 
+ * You do not need to copy the inspection type to the target record. 
+ * The function can copy duplicate inspections to the target record.
+ * capId is the record ID object for the current record.
+ * getApplication( ), getParent( ), createChild(), createCap() functions each return a record ID object.
+ */
+
+function copySchedInspections(pFromCapId, pToCapId) {
 	//Copies all scheduled inspections from pFromCapId to pToCapId
 	//If pToCapId is null, copies to current CAP
 	//07SSP-00037/SP5017
 	//
-	if (pToCapId==null)
-		var vToCapId = capId;
-	else
-		var vToCapId = pToCapId;
-		
+    var vToCapId = pToCapId;
+	if (typeof vToCapId == "undefined" || vToCapId == null) {
+        vToCapId = (typeof capId === typeof undefined || capId == null) ? "" : capId;
+    }
+    try {
+        aa.cap.getCap(pFromCapId);
+        aa.cap.getCap(vToCapId);
+    } catch (err) {
+        logDebug("'copySchedInspections' requires Source CapID param and Target CapID param OR global 'capId' be defined");
+        return false;
+    }
+
 	var inspResultObj = aa.inspection.getInspections(pFromCapId);
-	
-	if (!inspResultObj.getSuccess())
-		{
-		logMessage("**ERROR: Failed to get inspections: " + inspResultObj.getErrorMessage()); 
+
+	if (!inspResultObj.getSuccess()) {
+		logMessage("**ERROR: Failed to get inspections: " + inspResultObj.getErrorMessage());
 		return false;
-		}
-		
+	}
+
 	var inspCount = 0;
 	var schedRes;
 	var inspector;
 	var inspDate;
 	var inspTime;
 	var inspType;
-	var inspComment;	
-	
+	var inspComment;
+
 	var inspList = inspResultObj.getOutput();
-	for (xx in inspList)
-		{
-		if ("Insp Scheduled"==inspList[xx].getDocumentDescription())
-			{
+	for (var xx in inspList) {
+		if ("Insp Scheduled" == inspList[xx].getDocumentDescription()) {
 			inspector = inspList[xx].getInspector();
 			inspDate = inspList[xx].getScheduledDate();
 			inspTime = inspList[xx].getScheduledTime();
 			inspType = inspList[xx].getInspectionType();
 			inspComment = inspList[xx].getInspectionComments();
 			schedRes = aa.inspection.scheduleInspection(vToCapId, inspector, inspDate, inspTime, inspType, inspComment);
-			if (schedRes.getSuccess())
-				{
-				logDebug("Copied scheduled inspection from "+pFromCapId.getCustomID()+" to "+vToCapId.getCustomID());
+			if (schedRes.getSuccess()) {
+				logDebug("Copied scheduled inspection from " + pFromCapId.getCustomID() + " to " + vToCapId.getCustomID());
 				inspCount++;
-				}
-			else
-				logDebug( "**ERROR: copying scheduling inspection (" + inspType + "): " + schedRes.getErrorMessage());
-			}
+			} else {
+				logDebug("**ERROR: copying scheduling inspection (" + inspType + "): " + schedRes.getErrorMessage());
+            }
 		}
-	return inspCount;	
 	}
+	return inspCount;
+}
+ 
+//@ts-check
 
- 
- 
+/**
+ * Returns the number of active tasks in the workflow whose process name is processName.
+ * @param {string} processName Process name of workflow
+ * @returns {boolean | number} FALSE when some errors are encountered, otherwise, count of Active WF Tasks
+ */
+
 function countActiveTasks(processName) {
+
+    try {
+        aa.cap.getCap(capId);
+    } catch (err) {
+        logDebug("'countActiveTasks' requires global 'capId' be defined.");
+        return false;
+    }
+
+    if(typeof processName == "undefined"){
+        processName = "";
+    }
+
 	// counts the number of active tasks on a given process
 	var numOpen = 0;
+
 	var countResult = aa.workflow.getTaskCount(capId, processName, "Y");
-	if (countResult.getSuccess())
+	if (countResult.getSuccess()) {
 		numOpen = countResult.getOutput().intValue();
-	else {
+    } else {
 		logMessage("**ERROR: Failed to get task count: " + countResult.getErrorMessage());
 		return false;
 	}
+
 	return numOpen;
 }
- 
  
 function countIdenticalInspections()
 	{
@@ -5092,7 +6923,6 @@ function countIdenticalInspections()
 	return cntResult;
 	}	
 	 
- 
 function createCap(pCapType, pAppName) 
 	{
 	// creates a new application and returns the capID object
@@ -5113,13 +6943,14 @@ function createCap(pCapType, pAppName)
 		logDebug( "**ERROR: creating CAP " + appCreateResult.getErrorMessage());
 		return false;
 		}
+
 	var newId = appCreateResult.getOutput();
 	logDebug("CAP of type " + pCapType + " created successfully ");
 	var newObj = aa.cap.getCap(newId).getOutput();	//Cap object
 	
 	return newId;
 	}
- 
+
  
 function createCapComment(vComment) //optional CapId, optional vDispOnInsp
 {
@@ -5145,12 +6976,12 @@ function createCapComment(vComment) //optional CapId, optional vDispOnInsp
 	aa.cap.createCapComment(capCommentModel);
 	logDebug("Comment Added");
 } 
- 
 function createChild(grp,typ,stype,cat,desc) // optional parent capId
 {
 	//
 	// creates the new application and returns the capID object
 	//
+
 	var itemCap = capId
 	if (arguments.length > 5) itemCap = arguments[5]; // use cap ID specified in args
 	
@@ -5166,13 +6997,16 @@ function createChild(grp,typ,stype,cat,desc) // optional parent capId
 		capDetailModel = capModel.getCapModel().getCapDetailModel();
 		capDetailModel.setCapID(newId);
 		aa.cap.createCapDetail(capDetailModel);
+
 		var newObj = aa.cap.getCap(newId).getOutput();	//Cap object
 		var result = aa.cap.createAppHierarchy(itemCap, newId); 
 		if (result.getSuccess())
 			logDebug("Child application successfully linked");
 		else
 			logDebug("Could not link applications");
+
 		// Copy Parcels
+
 		var capParcelResult = aa.parcel.getParcelandAttribute(itemCap,null);
 		if (capParcelResult.getSuccess())
 			{
@@ -5188,6 +7022,7 @@ function createChild(grp,typ,stype,cat,desc) // optional parent capId
 				aa.parcel.createCapParcel(newCapParcel);
 				}
 			}
+
 		// Copy Contacts
 		capContactResult = aa.people.getCapContactByCapID(itemCap);
 		if (capContactResult.getSuccess())
@@ -5201,6 +7036,7 @@ function createChild(grp,typ,stype,cat,desc) // optional parent capId
 				logDebug("added contact");
 				}
 			}	
+
 		// Copy Addresses
 		capAddressResult = aa.address.getAddressByCapId(itemCap);
 		if (capAddressResult.getSuccess())
@@ -5222,116 +7058,216 @@ function createChild(grp,typ,stype,cat,desc) // optional parent capId
 		logDebug( "**ERROR: adding child App: " + appCreateResult.getErrorMessage());
 		}
 }
- 
+
  
  function createLicense(initStatus,copyASI) {
+
 	//initStatus - record status to set the license to initially
+
 	//copyASI - copy ASI from Application to License? (true/false)
 
+
+
 	var newLic = null;
+
 	var newLicId = null;
+
 	var newLicIdString = null;
+
 	var newLicenseType = appTypeArray[2];
 
+
+
 	//create the license record
+
 	newLicId = createParent(appTypeArray[0], appTypeArray[1], appTypeArray[2], "License",null);
 
+
+
 	//field repurposed to represent the current term effective date
+
 	editScheduledDate(sysDateMMDDYYYY,newLicId);
+
 	//field repurposed to represent the original effective date
+
 	editFirstIssuedDate(sysDateMMDDYYYY,newLicId);
 
+
+
 	newLicIdString = newLicId.getCustomID();
+
 	updateAppStatus(initStatus,"",newLicId);
 
+
+
 	//copy all ASI
+
 	if(copyASI) {
+
 		copyAppSpecific(newLicId);
+
 	}
 
+
+
 	return newLicId;	
+
 }
 
- 
+
+
  
  function createParent(grp,typ,stype,cat,desc) 
+
 //
+
 // creates the new application and returns the capID object
+
 // updated by JHS 10/23/12 to use copyContacts that handles addresses
+
 //
+
 	{
+
 	var appCreateResult = aa.cap.createApp(grp,typ,stype,cat,desc);
+
 	logDebug("creating cap " + grp + "/" + typ + "/" + stype + "/" + cat);
+
 	if (appCreateResult.getSuccess())
+
 		{
+
 		var newId = appCreateResult.getOutput();
+
 		logDebug("cap " + grp + "/" + typ + "/" + stype + "/" + cat + " created successfully ");
+
 		
+
 		// create Detail Record
+
 		capModel = aa.cap.newCapScriptModel().getOutput();
+
 		capDetailModel = capModel.getCapModel().getCapDetailModel();
+
 		capDetailModel.setCapID(newId);
+
 		aa.cap.createCapDetail(capDetailModel);
 
+
+
 		var newObj = aa.cap.getCap(newId).getOutput();	//Cap object
+
 		var result = aa.cap.createAppHierarchy(newId, capId); 
+
 		if (result.getSuccess())
+
 			logDebug("Parent application successfully linked");
+
 		else
+
 			logDebug("Could not link applications");
+
+
 
 		// Copy Parcels
 
+
+
 		var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
+
 		if (capParcelResult.getSuccess())
+
 			{
+
 			var Parcels = capParcelResult.getOutput().toArray();
+
 			for (zz in Parcels)
+
 				{
+
 				logDebug("adding parcel #" + zz + " = " + Parcels[zz].getParcelNumber());
+
 				var newCapParcel = aa.parcel.getCapParcelModel().getOutput();
+
 				newCapParcel.setParcelModel(Parcels[zz]);
+
 				newCapParcel.setCapIDModel(newId);
+
 				newCapParcel.setL1ParcelNo(Parcels[zz].getParcelNumber());
+
 				newCapParcel.setParcelNo(Parcels[zz].getParcelNumber());
+
 				aa.parcel.createCapParcel(newCapParcel);
+
 				}
+
 			}
 
+
+
 		// Copy Contacts
+
 		
+
 		copyContacts(capId,newId);
+
 		
+
 		// Copy Addresses
+
 		capAddressResult = aa.address.getAddressByCapId(capId);
+
 		if (capAddressResult.getSuccess())
+
 			{
+
 			Address = capAddressResult.getOutput();
+
 			for (yy in Address)
+
 				{
+
 				newAddress = Address[yy];
+
 				newAddress.setCapID(newId);
+
 				aa.address.createAddress(newAddress);
+
 				logDebug("added address");
+
 				}
+
 			}
+
 		
+
 		return newId;
+
 		}
+
 	else
+
 		{
+
 		logDebug( "**ERROR: adding parent App: " + appCreateResult.getErrorMessage());
+
 		}
+
 	}
 
 
 
+
+
+
+
  
- 
+
 function createPendingInspection(iGroup,iType) // optional Cap ID
 	{
 	var itemCap = capId;
 	if (arguments.length == 3) itemCap = arguments[2]; // use cap ID specified in args
+
 	var itmResult = aa.inspection.getInspectionType(iGroup,iType)
 	
 	if (!itmResult.getSuccess())
@@ -5339,6 +7275,7 @@ function createPendingInspection(iGroup,iType) // optional Cap ID
 		logDebug("**WARNING error retrieving inspection types: " + itmResult.getErrorMessage);
 		return false;
 		}
+
 	var itmArray = itmResult.getOutput();
 	
 	if (!itmArray)
@@ -5346,6 +7283,7 @@ function createPendingInspection(iGroup,iType) // optional Cap ID
 		logDebug("**WARNING could not find any matches for inspection group " + iGroup + " and type " + iType);
 		return false;
 		}
+
 	var itmSeq = null;
 	
 	for (thisItm in itmArray)
@@ -5354,6 +7292,7 @@ function createPendingInspection(iGroup,iType) // optional Cap ID
 		if (it.getGroupCode().toUpperCase().equals(iGroup.toUpperCase()) && it.getType().toUpperCase().equals(iType.toUpperCase()))
 			itmSeq = it.getSequenceNumber();
 		}
+
 	if (!itmSeq)
 		{
 		logDebug("**WARNING could not find an exact match for inspection group " + iGroup + " and type " + iType);
@@ -5365,7 +7304,9 @@ function createPendingInspection(iGroup,iType) // optional Cap ID
 	var activityModel = inspModel.getActivity();
 	activityModel.setInspSequenceNumber(itmSeq);
 	activityModel.setCapIDModel(itemCap);
+
 	pendingResult = aa.inspection.pendingInspection(inspModel)
+
 	if (pendingResult.getSuccess())
 		{
 		logDebug("Successfully created pending inspection group " + iGroup + " and type " + iType);
@@ -5380,12 +7321,14 @@ function createPendingInspection(iGroup,iType) // optional Cap ID
 }
 	
 	
+
  
- 
+
 function createPendingInspFromReqd() // optional Cap ID
 	{
 	var itemCap = capId;
 	if (arguments.length == 1) itemCap = arguments[0]; // use cap ID specified in args
+
 
 	var inspListResult = aa.inspection.getInspectionListForSchedule(itemCap.getID1(),itemCap.getID2(),itemCap.getID3());
 	
@@ -5407,7 +7350,7 @@ function createPendingInspFromReqd() // optional Cap ID
 		}
 	}
  
- 
+
 function createPublicUserFromContact()   // optional: Contact Type, default Applicant
 {
     var contactType = "Applicant";
@@ -5415,6 +7358,7 @@ function createPublicUserFromContact()   // optional: Contact Type, default Appl
     var refContactNum;
     var userModel;
     if (arguments.length > 0) contactType = arguments[0]; // use contact type specified
+
     var capContactResult = aa.people.getCapContactByCapID(capId);
     if (capContactResult.getSuccess()) {
 		var Contacts = capContactResult.getOutput();
@@ -5426,19 +7370,23 @@ function createPublicUserFromContact()   // optional: Contact Type, default Appl
     
     if (!contact)
     { logDebug("Couldn't create public user for " + contactType + ", no such contact"); return false; }
+
     if (!contact.getEmail())
     { logDebug("Couldn't create public user for " + contactType + ", no email address"); return false; }
+
 	if (contact.getPeople().getContactTypeFlag().equals("organization"))
 	{ logDebug("Couldn't create public user for " + contactType + ", the contact is an organization"); return false; }
 	
     // get the reference contact ID.   We will use to connect to the new public user
     refContactNum = contact.getCapContactModel().getRefContactNumber();
+
     // check to see if public user exists already based on email address
     var getUserResult = aa.publicUser.getPublicUserByEmail(contact.getEmail())
     if (getUserResult.getSuccess() && getUserResult.getOutput()) {
         userModel = getUserResult.getOutput();
         logDebug("CreatePublicUserFromContact: Found an existing public user: " + userModel.getUserID());
 	}
+
     if (!userModel) // create one
     	{
 	    logDebug("CreatePublicUserFromContact: creating new user based on email address: " + contact.getEmail()); 
@@ -5451,16 +7399,21 @@ function createPublicUserFromContact()   // optional: Contact Type, default Appl
 	    publicUser.setAuditID("PublicUser");
 	    publicUser.setAuditStatus("A");
 	    publicUser.setCellPhone(contact.getCapContactModel().getPeople().getPhone2());
+
 	    var result = aa.publicUser.createPublicUser(publicUser);
 	    if (result.getSuccess()) {
+
 		logDebug("Created public user " + contact.getEmail() + "  sucessfully.");
 		var userSeqNum = result.getOutput();
 		var userModel = aa.publicUser.getPublicUser(userSeqNum).getOutput()
+
 		// create for agency
 		aa.publicUser.createPublicUserForAgency(userModel);
+
 		// activate for agency
 		var userPinBiz = aa.proxyInvoker.newInstance("com.accela.pa.pin.UserPINBusiness").getOutput()
 			userPinBiz.updateActiveStatusAndLicenseIssueDate4PublicUser(servProvCode,userSeqNum,"ADMIN");
+
 			// reset password
 			var resetPasswordResult = aa.publicUser.resetPassword(contact.getEmail());
 			if (resetPasswordResult.getSuccess()) {
@@ -5470,8 +7423,10 @@ function createPublicUserFromContact()   // optional: Contact Type, default Appl
 			} else {
 				logDebug("**ERROR: Reset password for  " + contact.getEmail() + "  failure:" + resetPasswordResult.getErrorMessage());
 			}
+
 		// send Activate email
 		aa.publicUser.sendActivateEmail(userModel, true, true);
+
 		// send another email
 		aa.publicUser.sendPasswordEmail(userModel);
 	    }
@@ -5479,6 +7434,7 @@ function createPublicUserFromContact()   // optional: Contact Type, default Appl
     	    logDebug("**Warning creating public user " + contact.getEmail() + "  failure: " + result.getErrorMessage()); return null;
     	}
     }
+
 //  Now that we have a public user let's connect to the reference contact		
 	
 if (refContactNum)
@@ -5487,9 +7443,9 @@ if (refContactNum)
 	aa.licenseScript.associateContactWithPublicUser(userModel.getUserSeqNum(), refContactNum);
 	}
 	
+
 return userModel; // send back the new or existing public user
 }
- 
  
 function createRecord(grp,typ,stype,cat,desc) 
 //
@@ -5508,8 +7464,11 @@ function createRecord(grp,typ,stype,cat,desc)
 		capDetailModel = capModel.getCapModel().getCapDetailModel();
 		capDetailModel.setCapID(newId);
 		aa.cap.createCapDetail(capDetailModel);
+
 		var newObj = aa.cap.getCap(newId).getOutput();	//Cap object
+
 		// Copy Parcels
+
 		var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
 		if (capParcelResult.getSuccess())
 			{
@@ -5525,6 +7484,7 @@ function createRecord(grp,typ,stype,cat,desc)
 				aa.parcel.createCapParcel(newCapParcel);
 				}
 			}
+
 		// Copy Contacts
 		capContactResult = aa.people.getCapContactByCapID(capId);
 		if (capContactResult.getSuccess())
@@ -5538,6 +7498,7 @@ function createRecord(grp,typ,stype,cat,desc)
 				logDebug("added contact");
 				}
 			}	
+
 		// Copy Addresses
 		capAddressResult = aa.address.getAddressByCapId(capId);
 		if (capAddressResult.getSuccess())
@@ -5559,7 +7520,7 @@ function createRecord(grp,typ,stype,cat,desc)
 		logDebug( "**ERROR: adding parent App: " + appCreateResult.getErrorMessage());
 		}
 	}
- 
+
  
 function createRefContactAddressFromAddress(rSeqNbr,nAddrModel,addrType) {
 						
@@ -5590,8 +7551,10 @@ function createRefContactAddressFromAddress(rSeqNbr,nAddrModel,addrType) {
 	   	//var startDate = aa.util.parseDate("09/12/2012");
 	  	//var endDate =  conversionDate("09/12/2013");
 	   	//contactAddressModel.setEffectiveDate(startDate);
+
 		var contactAddressModel = contactAddressScriptModel.getContactAddressModel();
 		var returnModel = aa.address.createContactAddress(contactAddressModel);
+
 		if(returnModel.getSuccess()) {
 		 	logDebug("Create Contact Address Successfully: " + returnModel.getOutput().getAddressID());
 		 	return returnModel.getOutput();
@@ -5605,9 +7568,10 @@ function createRefContactAddressFromAddress(rSeqNbr,nAddrModel,addrType) {
 		return false;
 	}						
 } 
- 
+
 function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignoreAttributeArray, replaceCapContact, overwriteRefContact, refContactExists)
 	{
+
 	// contactTypeArray is either null (all), or an array or contact types to process
 	//
 	// ignoreAttributeArray is either null (none), or an array of attributes to ignore when creating a REF contact
@@ -5624,35 +7588,48 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 	// choice determines the default action of all contact types.   Other types can be configured separately.
 	// Each contact type can be set to "I" (create ref as individual), "O" (create ref as organization),
 	// "F" (follow the indiv/org flag on the cap contact), "D" (Do not create a ref contact), and "U" (create ref using transaction contact type).
+
 	var standardChoiceForBusinessRules = "REF_CONTACT_CREATION_RULES";
+
 
 	var ingoreArray = new Array();
 	if (arguments.length > 1) ignoreArray = arguments[1];
+
 	var defaultContactFlag = lookup(standardChoiceForBusinessRules,"Default");
+
 	var c = aa.people.getCapContactByCapID(pCapId).getOutput()
 	var cCopy = aa.people.getCapContactByCapID(pCapId).getOutput()  // must have two working datasets
+
 	for (var i in c)
 	   {
 	   var ruleForRefContactType = "U"; // default behavior is create the ref contact using transaction contact type
 	   var con = c[i];
+
 	   var p = con.getPeople();
+
 	   var contactFlagForType = lookup(standardChoiceForBusinessRules,p.getContactType());
+
 	   if (!defaultContactFlag && !contactFlagForType) // standard choice not used for rules, check the array passed
 	   	{
 	   	if (contactTypeArray && !exists(p.getContactType(),contactTypeArray))
 			continue;  // not in the contact type list.  Move along.
 		}
+
 	   if (!contactFlagForType && defaultContactFlag) // explicit contact type not used, use the default
 	   	{
 	   	ruleForRefContactType = defaultContactFlag;
 	   	}
+
 	   if (contactFlagForType) // explicit contact type is indicated
 	   	{
 	   	ruleForRefContactType = contactFlagForType;
 	   	}
+
 	   if (ruleForRefContactType.equals("D"))
 	   	continue;
+
 	   var refContactType = "";
+
 	   switch(ruleForRefContactType)
 	   	{
 		   case "U":
@@ -5671,14 +7648,18 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 		     	refContactType = "Individual";
 		     break;
 		}
+
 	   var refContactNum = con.getCapContactModel().getRefContactNumber();
+
 	   if (refContactNum)  // This is a reference contact.   Let's refresh or overwrite as requested in parms.
 	   	{
 	   	if (overwriteRefContact)
 	   		{
 	   		p.setContactSeqNumber(refContactNum);  // set the ref seq# to refresh
 	   		p.setContactType(refContactType);
+
 	   						var a = p.getAttributes();
+
 							if (a)
 								{
 								var ai = a.iterator();
@@ -5688,29 +7669,38 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 									xx.setContactNo(refContactNum);
 									}
 					}
+
 	   		var r = aa.people.editPeopleWithAttribute(p,p.getAttributes());
+
 			if (!r.getSuccess())
 				logDebug("WARNING: couldn't refresh reference people : " + r.getErrorMessage());
 			else
 				logDebug("Successfully refreshed ref contact #" + refContactNum + " with CAP contact data");
 			}
+
 	   	if (replaceCapContact)
 	   		{
 				// To Be Implemented later.   Is there a use case?
 			}
+
 	   	}
 	   	else  // user entered the contact freehand.   Let's create or link to ref contact.
 	   	{
 			var ccmSeq = p.getContactSeqNumber();
+
 			var existingContact = refContactExists(p);  // Call the custom function to see if the REF contact exists
+
 			var p = cCopy[i].getPeople();  // get a fresh version, had to mangle the first for the search
+
 			if (existingContact)  // we found a match with our custom function.  Use this one.
 				{
 					refPeopleId = existingContact;
 				}
 			else  // did not find a match, let's create one
 				{
+
 				var a = p.getAttributes();
+
 				if (a)
 					{
 					//
@@ -5723,91 +7713,161 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 							ai.remove();
 						}
 					}
+
 				p.setContactType(refContactType);
 				var r = aa.people.createPeopleWithAttribute(p,a);
+
 				if (!r.getSuccess())
 					{logDebug("WARNING: couldn't create reference people : " + r.getErrorMessage()); continue; }
+
 				//
 				// createPeople is nice and updates the sequence number to the ref seq
 				//
+
 				var p = cCopy[i].getPeople();
 				var refPeopleId = p.getContactSeqNumber();
+
 				logDebug("Successfully created reference contact #" + refPeopleId);
+
 				// Need to link to an existing public user.
+
 			    var getUserResult = aa.publicUser.getPublicUserByEmail(con.getEmail())
 			    if (getUserResult.getSuccess() && getUserResult.getOutput()) {
 			        var userModel = getUserResult.getOutput();
 			        logDebug("createRefContactsFromCapContactsAndLink: Found an existing public user: " + userModel.getUserID());
+
 					if (refPeopleId)	{
 						logDebug("createRefContactsFromCapContactsAndLink: Linking this public user with new reference contact : " + refPeopleId);
 						aa.licenseScript.associateContactWithPublicUser(userModel.getUserSeqNum(), refPeopleId);
 						}
 					}
 				}
+
 			//
 			// now that we have the reference Id, we can link back to reference
 			//
+
 		    var ccm = aa.people.getCapContactByPK(pCapId,ccmSeq).getOutput().getCapContactModel();
+
 		    ccm.setRefContactNumber(refPeopleId);
 		    r = aa.people.editCapContact(ccm);
+
 		    if (!r.getSuccess())
 				{ logDebug("WARNING: error updating cap contact model : " + r.getErrorMessage()); }
 			else
 				{ logDebug("Successfully linked ref contact " + refPeopleId + " to cap contact " + ccmSeq);}
 
+
 	    }  // end if user hand entered contact
 	}  // end for each CAP contact
 } 
  
- 
- function createRefLicProf(rlpId,rlpType,pContactType)
-	{
+//@ts-check
+/**
+ * Creates a new reference Licensed Professional from the Contact on the current record whose contact type is pContactType.
+ * The Licensed Professional has the state license # of rlpId and license type of rlpType. 
+ * If a reference Licensed Professional with state license # rlpId already exists, it UPDATES with data from the Contact.
+ * Contact's State field must be populated for the Licensed Prof to be created.
+ * The function does not copy the Contact's Middle Name and Address Line 3 to the Licensed Prof.
+ * If available, the following app specific info fields copy to the Licensed Prof (field labels must match exactly):
+ *  - Insurance Co
+ *  - Insurance Amount
+ *  - Insurance Exp Date
+ *  - Policy #
+ *  - Business License #
+ *  - Business License Exp Date
+ * @param {string} rlpId Reference LP State Lic Number
+ * @param {string} rlpType Reference LP Type
+ * @param {string} pContactType Contact Type to match on the Record
+ * @param {string} [addrTypeToCopy] (unnamed/optional) If populated, then this Address Type used to match Contact Address
+ * @returns {boolean} TRUE if add/update was successful. FALSE if add/update was not successful.
+ */
+function createRefLicProf(rlpId, rlpType, pContactType) {
 	// 
 	//Creates/updates a reference licensed prof from a Contact
 	//06SSP-00074, modified for 06SSP-00238
-	
-	var addrTypeToCopy = null;
-	if (arguments.length == 4) addrTypeToCopy = arguments[3]; // optional 4th parameter, address type of multi-address to use
-	var updating = false;
-	conArr = getPeople(capId);
-	if (!conArr.length)
-		{
-		logDebug ("**WARNING: No contact available");
-		return false;
-		}
 
-	var newLic = getRefLicenseProf(rlpId)
-	if (newLic)
-		{
+
+	if (typeof rlpId == "undefined" || !rlpId) {
+		logDebug("'createRefLicProf' - Requires parameter 'rlpId' ");
+		return false;
+	}
+	if (typeof rlpType == "undefined" || !rlpType) {
+		logDebug("'createRefLicProf' - Requires parameter 'rlpType' ");
+		return false;
+	}
+	if (typeof capId == "undefined" || !capId) {
+		logDebug("'createRefLicProf' - Requires global var 'capId' ");
+		return false;
+	}
+	var l_SysDate;
+	var l_CurrentUserID;
+	if (typeof currentUserID == "undefined" || !currentUserID) {
+		l_CurrentUserID = aa.env.getValue("CurrentUserID");
+	} else {
+		l_CurrentUserID = currentUserID;
+	}
+	if (!l_CurrentUserID) {
+		logDebug("'createRefLicProf' - Requires either env var 'CurrentUserID' or global var 'currentUserID' ");
+		return false;
+	}
+	if (typeof sysDate == "undefined" || !sysDate) {
+		l_SysDate = aa.date.getCurrentDate();
+	} else {
+		l_SysDate = sysDate;
+	}
+	if (typeof AInfo == "undefined") {
+		logDebug("'createRefLicProf' - global var 'AInfo' is undefined. Will set to new Array");
+		AInfo = [];
+	}
+
+
+	var addrTypeToCopy = null;
+	if (arguments.length == 4) {
+		addrTypeToCopy = arguments[3]; // optional 4th parameter, address type of multi-address to use
+	}
+
+	var updating = false;
+
+	var conArr = getPeople(capId);
+
+	if (!conArr.length) {
+		logDebug("**WARNING: No contact available");
+		return false;
+	}
+
+	var newLic = getRefLicenseProf(rlpId);
+
+	if (newLic) {
 		updating = true;
 		logDebug("Updating existing Ref Lic Prof : " + rlpId);
-		}
-	else
+	} else {
 		var newLic = aa.licenseScript.createLicenseScriptModel();
+	}
+
 	//get contact record
-	if (pContactType==null)
+	if (typeof pContactType == "undefined" || pContactType == null) {
 		var cont = conArr[0]; //if no contact type specified, use first contact
-	else
-		{
+	} else {
 		var contFound = false;
-		for (yy in conArr)
-			{
-			if (pContactType.equals(conArr[yy].getCapContactModel().getPeople().getContactType()))
-				{
+		for (var yy in conArr) {
+
+			// if (pContactType.equals(conArr[yy].getCapContactModel().getPeople().getContactType())) {
+			if (pContactType.toUpperCase() == (conArr[yy].getCapContactModel().getPeople().getContactType()).toUpperCase()) {
 				cont = conArr[yy];
 				contFound = true;
 				break;
-				}
-			}
-		if (!contFound)
-			{
-			logDebug ("**WARNING: No Contact found of type: "+pContactType);
-			return false;
 			}
 		}
-	peop = cont.getPeople();
+		if (!contFound) {
+			logDebug("**WARNING: No Contact found of type: " + pContactType);
+			return false;
+		}
+	}
+
+	var peop = cont.getPeople();
 	var addr = null;
-	
+
 	if (addrTypeToCopy) {
 		var pmcal = peop.getContactAddressList();
 		if (pmcal) {
@@ -5819,8 +7879,13 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 			}
 		}
 	}
-	
-	if (!addr) addr = peop.getCompactAddress();   //  only used on non-multiple addresses or if we can't find the right multi-address
+
+	if (!addr) {
+		//  only used on non-multiple addresses or if we can't find the right multi-address
+		// addr = peop.getCompactAddres(); // a missing 's' in 'Address'? Has this never ever been tried?
+		addr = peop.getCompactAddress();
+	}
+
 	newLic.setContactFirstName(cont.getFirstName());
 	//newLic.setContactMiddleName(cont.getMiddleName());  //method not available
 	newLic.setContactLastName(cont.getLastName());
@@ -5835,38 +7900,54 @@ function createRefContactsFromCapContactsAndLink(pCapId, contactTypeArray, ignor
 	newLic.setPhone2(peop.getPhone2());
 	newLic.setEMailAddress(peop.getEmail());
 	newLic.setFax(peop.getFax());
+
 	newLic.setAgencyCode(aa.getServiceProviderCode());
-	newLic.setAuditDate(sysDate);
-	newLic.setAuditID(currentUserID);
+	newLic.setAuditDate(l_SysDate);
+	newLic.setAuditID(l_CurrentUserID);
 	newLic.setAuditStatus("A");
-	if (AInfo["Insurance Co"]) 		newLic.setInsuranceCo(AInfo["Insurance Co"]);
-	if (AInfo["Insurance Amount"]) 		newLic.setInsuranceAmount(parseFloat(AInfo["Insurance Amount"]));
-	if (AInfo["Insurance Exp Date"]) 	newLic.setInsuranceExpDate(aa.date.parseDate(AInfo["Insurance Exp Date"]));
-	if (AInfo["Policy #"]) 			newLic.setPolicy(AInfo["Policy #"]);
-	if (AInfo["Business License #"]) 	newLic.setBusinessLicense(AInfo["Business License #"]);
-	if (AInfo["Business License Exp Date"]) newLic.setBusinessLicExpDate(aa.date.parseDate(AInfo["Business License Exp Date"]));
+
+	if (AInfo["Insurance Co"]) {
+		newLic.setInsuranceCo(AInfo["Insurance Co"]);
+	}
+	if (AInfo["Insurance Amount"]) {
+		newLic.setInsuranceAmount(parseFloat(AInfo["Insurance Amount"]));
+	}
+	if (AInfo["Insurance Exp Date"]) {
+		newLic.setInsuranceExpDate(aa.date.parseDate(AInfo["Insurance Exp Date"]));
+	}
+	if (AInfo["Policy #"]) {
+		newLic.setPolicy(AInfo["Policy #"]);
+	}
+	if (AInfo["Business License #"]) {
+		newLic.setBusinessLicense(AInfo["Business License #"]);
+	}
+	if (AInfo["Business License Exp Date"]) {
+		newLic.setBusinessLicExpDate(aa.date.parseDate(AInfo["Business License Exp Date"]));
+	}
+
 	newLic.setLicenseType(rlpType);
 	newLic.setLicState(addr.getState());
 	newLic.setStateLicense(rlpId);
-	if (updating)
+
+	var myResult;
+	if (updating) {
 		myResult = aa.licenseScript.editRefLicenseProf(newLic);
-	else
+	} else {
 		myResult = aa.licenseScript.createRefLicenseProf(newLic);
-	if (myResult.getSuccess())
-		{
+	}
+
+	if (myResult.getSuccess()) {
 		logDebug("Successfully added/updated License No. " + rlpId + ", Type: " + rlpType);
 		logMessage("Successfully added/updated License No. " + rlpId + ", Type: " + rlpType);
 		return true;
-		}
-	else
-		{
+	} else {
 		logDebug("**ERROR: can't create ref lic prof: " + myResult.getErrorMessage());
 		logMessage("**ERROR: can't create ref lic prof: " + myResult.getErrorMessage());
 		return false;
-		}
 	}
+}
  
- 
+
 function createRefLicProfFromLicProf()
 	{
 	//
@@ -5877,15 +7958,19 @@ function createRefLicProfFromLicProf()
 		{ capLicenseArr = capLicenseResult.getOutput();  }
 	else
 		{ logDebug("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage()); return false; }
+
 	if (!capLicenseArr.length)
 		{ logDebug("WARNING: no license professional available on the application:"); return false; }
+
 	licProfScriptModel = capLicenseArr[0];
 	rlpId = licProfScriptModel.getLicenseNbr();
 	//
 	// Now see if a reference version exists
 	//
 	var updating = false;
+
 	var newLic = getRefLicenseProf(rlpId)
+
 	if (newLic)
 		{
 		updating = true;
@@ -5893,6 +7978,7 @@ function createRefLicProfFromLicProf()
 		}
 	else
 		var newLic = aa.licenseScript.createLicenseScriptModel();
+
 	//
 	// Now add / update the ref lic prof
 	//
@@ -5926,10 +8012,12 @@ function createRefLicProfFromLicProf()
 	newLic.setSuffixName(licProfScriptModel.getSuffixName());
 	newLic.setWcExempt(licProfScriptModel.getWorkCompExempt());
 	newLic.setZip(licProfScriptModel.getZip());
+
 	if (updating)
 		myResult = aa.licenseScript.editRefLicenseProf(newLic);
 	else
 		myResult = aa.licenseScript.createRefLicenseProf(newLic);
+
 	if (myResult.getSuccess())
 		{
 		logDebug("Successfully added/updated License ID : " + rlpId)
@@ -5938,29 +8026,47 @@ function createRefLicProfFromLicProf()
 	else
 		{ logDebug("**ERROR: can't create ref lic prof: " + myResult.getErrorMessage()); }
 	}
- 
+
  
  function createRefLP4Lookup(newLicIdString,newLicenseType,conType,conAddrType) {
+
 	//All parameters are required
+
 	//newLicIdString - license altID
+
 	//newLicenseType - Ref LP license type
+
 	//conType - Contact type to use for the reference LP
+
 	//conAddrType - Contact address type to use for the reference LP
+
+
 
 	createRefLicProf(newLicIdString,newLicenseType,conType,conAddrType);
 
+
+
 	newLic = getRefLicenseProf(newLicIdString);
+
 	if (newLic) {
+
 		//manually set any values on the reference LP
+
 		newLic.setAuditStatus("A");
+
 		aa.licenseScript.editRefLicenseProf(newLic);
+
 		logDebug("Reference LP successfully created");
+
 	} else {
+
 		logDebug("Reference LP not created");
+
 	}
 
+
+
 }
- 
  
 function dateAdd(td, amt)
 // perform date arithmetic on a string
@@ -5968,12 +8074,15 @@ function dateAdd(td, amt)
 // amt can be positive or negative (5, -3) days
 // if optional parameter #3 is present, use working days only
 {
+
 	var useWorking = false;
 	if (arguments.length == 3)
 		useWorking = true;
+
 	if (!td) dDate = new Date(aa.util.now());
 	else
 		dDate = convertDate(td);
+
 	var i = 0;
 	if (useWorking)
 		if (!aa.calendar.getNextWorkDay) {
@@ -5991,14 +8100,15 @@ function dateAdd(td, amt)
 				} else {
 					dDate = new Date(aa.calendar.getPreviousWorkDay(aa.date.parseDate(dDate.getMonth() + 1 + "/" + dDate.getDate() + "/" + dDate.getFullYear())).getOutput().getTime());
 					i++;
+
 				}
 			}
 		}
 	else
 		dDate.setDate(dDate.getDate() + parseInt(amt, 10));
+
 	return (dDate.getMonth() + 1) + "/" + dDate.getDate() + "/" + dDate.getFullYear();
 } 
- 
 function dateAddMonths(pDate, pMonths)
 	{
 	// Adds specified # of months (pMonths) to pDate and returns new date as string in format MM/DD/YYYY
@@ -6010,6 +8120,7 @@ function dateAddMonths(pDate, pMonths)
 	if (!pDate) baseDate = new Date(aa.util.now());
 	else
 		baseDate = convertDate(pDate);
+
 	var day = baseDate.getDate();
 	baseDate.setMonth(baseDate.getMonth() + pMonths);
 	if (baseDate.getDate() < day)
@@ -6019,35 +8130,50 @@ function dateAddMonths(pDate, pMonths)
 		}
 	return ((baseDate.getMonth() + 1) + "/" + baseDate.getDate() + "/" + baseDate.getFullYear());
 	}
- 
+
  
 	
+
 function dateDiff(date1, date2) {
+
     return (convertDate(date2).getTime() - convertDate(date1).getTime()) / (1000 * 60 * 60 * 24);
 }
+
  
- 
-function dateFormatted(pMonth, pDay, pYear, pFormat)
-//returns date string formatted as YYYY-MM-DD or MM/DD/YYYY (default)
-{
+//@ts-check
+
+/**
+ * Returns formatted date in YYYY-MM-DD or MM/DD/YYYY format (default).
+ * 	
+ * @param {string} pMonth Month of new date, as 2-digit month.
+ * @param {string} pDay Day of new date, as 2-digit day.
+ * @param {string} pYear Year of new date as 4-digit year.
+ * @param {string} pFormat Format to produce string in.
+ * @returns {string} Formatted date
+ */
+
+function dateFormatted(pMonth, pDay, pYear, pFormat) {
 	var mth = "";
 	var day = "";
 	var ret = "";
-	if (pMonth > 9)
+
+	if (pMonth > 9) {
 		mth = pMonth.toString();
-	else
+	} else {
 		mth = "0" + pMonth.toString();
-	if (pDay > 9)
+	}
+	if (pDay > 9) {
 		day = pDay.toString();
-	else
+	} else {
 		day = "0" + pDay.toString();
-	if (pFormat == "YYYY-MM-DD")
+	}
+	if (pFormat == "YYYY-MM-DD") {
 		ret = pYear.toString() + "-" + mth + "-" + day;
-	else
+	} else {
 		ret = "" + mth + "/" + day + "/" + pYear.toString();
+	}
 	return ret;
 } 
- 
 function dateNextOccur (pMonth, pDay, pDate)
 	//optional 4th param pOddEven:
 	//'ODD' specifies that return date must be next odd year, 'EVEN' means return date is next even year.
@@ -6058,6 +8184,7 @@ function dateNextOccur (pMonth, pDay, pDate)
 		var vBaseDate = new Date(vDate.substr(5,2)+"/"+vDate.substr(8,2)+"/"+vDate.substr(0,4));
 	else
 		var vBaseDate = new Date(vDate);
+
 	var vCurrentYr = vBaseDate.getFullYear().toString();
 	var vTestDate = new Date(pMonth+"/"+pDay+"/"+vCurrentYr);
 	var vUseOddEven = false;
@@ -6081,34 +8208,55 @@ function dateNextOccur (pMonth, pDay, pDate)
 		{
 		if (vOddEven=="ODD" && vReturnDate.getFullYear()%2==0) //vReturnDate is EVEN year
 			vReturnDate.setFullYear(vReturnDate.getFullYear()+1);
+
 		if (vOddEven=="EVEN" && vReturnDate.getFullYear()%2)    //vReturnDate is ODD year
 			vReturnDate.setFullYear(vReturnDate.getFullYear()+1);
 		}
+
 	return (vReturnDate.getMonth()+1) + "/" + vReturnDate.getDate() + "/" + vReturnDate.getFullYear();  
 	}
- 
+
  
  function deactivateActiveTasks(processName) {
 
+
+
 	var workflowResult = aa.workflow.getTasks(capId);
+
  	if (workflowResult.getSuccess())
+
   	 	wfObj = workflowResult.getOutput();
+
   	else
+
+
 
   	  	{ logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
 
+
+
 	
+
 	for (i in wfObj)
+
 		{
+
    		fTask = wfObj[i];
+
 		if (fTask.getProcessCode().equals(processName))
+
 			if (fTask.getActiveFlag().equals("Y"))
+
 				deactivateTask(fTask.getTaskDescription());
+
 		}
+
+
 
 }
 
- 
+
+
  
 function deactivateTask(wfstr) // optional process name
 {
@@ -6118,6 +8266,7 @@ function deactivateTask(wfstr) // optional process name
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -6125,94 +8274,148 @@ function deactivateTask(wfstr) // optional process name
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
 			var completeFlag = fTask.getCompleteFlag();
+
 			if (useProcess) {
 				aa.workflow.adjustTask(capId, stepnumber, processID, "N", completeFlag, null, null);
 			} else {
 				aa.workflow.adjustTask(capId, stepnumber, "N", completeFlag, null, null);
 			}
+
 			logDebug("deactivating Workflow Task: " + wfstr);
 		}
 	}
 }
  
- 
  function decode64(input) {
+
      var keyStr = "ABCDEFGHIJKLMNOP" +
+
                "QRSTUVWXYZabcdef" +
+
                "ghijklmnopqrstuv" +
+
                "wxyz0123456789+/" +
+
                "=";
 
+
+
      var output = "";
+
      var chr1, chr2, chr3 = "";
+
      var enc1, enc2, enc3, enc4 = "";
+
      var i = 0;
 
+
+
      // remove all characters that are not A-Z, a-z, 0-9, +, /, or =
+
      var base64test = /[^A-Za-z0-9\+\/\=]/g;
+
      if (base64test.exec(input)) {
+
         alert("There were invalid base64 characters in the input text.\n" +
+
               "Valid base64 characters are A-Z, a-z, 0-9, '+', '/',and '='\n" +
+
               "Expect errors in decoding.");
+
      }
+
      input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
 
+
+
      do {
+
         enc1 = keyStr.indexOf(input.charAt(i++));
+
         enc2 = keyStr.indexOf(input.charAt(i++));
+
         enc3 = keyStr.indexOf(input.charAt(i++));
+
         enc4 = keyStr.indexOf(input.charAt(i++));
 
+
+
         chr1 = (enc1 << 2) | (enc2 >> 4);
+
         chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+
         chr3 = ((enc3 & 3) << 6) | enc4;
+
+
 
         output = output + String.fromCharCode(chr1);
 
+
+
         if (enc3 != 64) {
+
            output = output + String.fromCharCode(chr2);
-        }
-        if (enc4 != 64) {
-           output = output + String.fromCharCode(chr3);
+
         }
 
+        if (enc4 != 64) {
+
+           output = output + String.fromCharCode(chr3);
+
+        }
+
+
+
         chr1 = chr2 = chr3 = "";
+
         enc1 = enc2 = enc3 = enc4 = "";
+
+
 
      } while (i < input.length);
 
+
+
      return unescape(output);
+
   }
- 
+
  
 
+
+
 function deleteLicensedProfessional(lsm)  {
+
 
 	// takes a licenseScriptModel and deletes it, along with public user associations
 	
 	var lic = aa.proxyInvoker.newInstance("com.accela.aa.aamain.people.LicenseBusiness").getOutput();
 	var clb = aa.proxyInvoker.newInstance("com.accela.pa.people.license.ContractorLicenseBusiness").getOutput();
+
 	if (lsm)
 	   {
 	   lm = lsm.getLicenseModel();
+
 	   pubusers = aa.publicUser.getPublicUserListByLicenseSeqNBR(licenseNumber).getOutput().toArray();
+
 	   for (p1 in pubusers)
 		{
 		pu = pubusers[p1].getUserSeqNum();
 		clb.deleteContractorLicense(pu, lsm.getLicenseType(),lsm.getAgencyCode(),licenseNumber);
 		logDebug("deleted association to public user: " + pubusers[p1].getUserID());
 		}
+
 	   lic.removeLicenseByPK(lm);
 	   logDebug(licenseNumber + "has been deleted");
 	   }
 	}
- 
  
 function deleteTask(targetCapId,deleteTaskName)
 {
@@ -6224,7 +8427,9 @@ function deleteTask(targetCapId,deleteTaskName)
   	 	var wfObj = workflowResult.getOutput();
   	else
   	  	{ logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
+
 	var tTask = null;
+
 	for (i in wfObj)
 		{
    		var fTask = wfObj[i];
@@ -6232,16 +8437,20 @@ function deleteTask(targetCapId,deleteTaskName)
   			{
 			var tTask = wfObj[i];
 			}
+
 		}
+
 	if (!tTask)
   	  	{ logDebug("**WARNING: Task not found: " + deleteTaskName); return false; }
 
+
 	logDebug("Removing task " + tTask.getTaskDescription());
 	var result = aa.workflow.removeTask(tTask)
+
 	if (!result.getSuccess())
 		{ logDebug("error " + result.getErrorMessage()); return false; }
+
 }
- 
  
 function describe(obj) {
 	var ret = "";
@@ -6253,10 +8462,10 @@ function describe(obj) {
 	return ret;
 }
  
- 
 function describeObject(obj2describe)
 {
     //For Pageflow, use logDebug instead of aa.print (or aa.debug?  haven't tried it)
+
                 logDebug("Object Class: " + obj2describe.getClass());
                 
                 logDebug("List Object Functions ...");
@@ -6264,6 +8473,7 @@ function describeObject(obj2describe)
                 for (x in obj2describe) 
                                 if (typeof(obj2describe[x]) == "function")
                                                 aa.print("  " + x)
+
                 logDebug("");
                 logDebug("List Object Properties ...");
                                                 
@@ -6273,7 +8483,6 @@ function describeObject(obj2describe)
                                                 logDebug("  " + x + " = " + obj2describe[x]);
                                                 
 }
- 
  
 /*
  This function finds the JSON file associated to the module of the record running. 
@@ -6305,28 +8514,34 @@ function describeObject(obj2describe)
   }
 }
  */
+
 function doConfigurableScriptActions() {
 	var module = "";
+
 	if (appTypeArray && appTypeArray[0] != undefined) {
 		module = appTypeArray[0];
 	}
-	if (typeof capId !== 'undefined') {
+
+	if (typeof capId !== 'undefined' && capId) {
 		if (module == "") {
 			var itemCap = aa.cap.getCap(capId).getOutput();
 			var itemCapModel = itemCap.getCapModel();
 			module = itemCapModel.getModuleName();
 		}
 	}
+
 	if (module != "") {
 		rulesetName = "CONFIGURABLE_RULESET_" + module;
 		rulesetName = rulesetName.toUpperCase();
 		logDebug("rulesetName: " + rulesetName);
+
 		try {
 			var configRuleset = getScriptText(rulesetName);
 			if (configRuleset == "") {
 				logDebug("No JSON file exists for this module.");
 			} else {
 				var configJSON = JSON.parse(configRuleset);
+
 				// match event, run appropriate configurable scripts
 				settingsArray = [];
 				if (configJSON[controlString]) {
@@ -6335,11 +8550,14 @@ function doConfigurableScriptActions() {
 					var customScriptsToRun = ruleSetArray.CustomScripts;
 					var script;
 					var validScript;
+
 					for (var s in scriptsToRun) {
+
 						if (exists(scriptsToRun[s], customScriptsToRun)) {
 							logDebug("doConfigurableScriptActions scriptsToRun[s]: " + scriptsToRun[s] + " Overridden in CustomScripts, Skipped.");
 							continue;
 						}
+
 						logDebug("doConfigurableScriptActions scriptsToRun[s]: " + scriptsToRun[s]);
 						script = scriptsToRun[s];
 						validScript = getScriptText(script);
@@ -6367,7 +8585,7 @@ function doConfigurableScriptActions() {
 		}
 	}
 } 
- 
+
 function docWrite(dstr,header,indent)
 	{
 	var istr = "";
@@ -6380,15 +8598,17 @@ function docWrite(dstr,header,indent)
 		aa.print(istr + "------------------------------------------------");
 	}
 
+
  
- 
+
 function doesASIFieldExistOnRecord(asiFieldName) {
 	var itemCap = capId;
 	if (arguments.length > 1)
 			itemCap = arguments[1]; // use cap ID specified in args
+
 	return (aa.appSpecificInfo.getAppSpecificInfos(itemCap, asiFieldName).getOutput()[0] != 'undefined');
+
 }
- 
  
 function doScriptActions() {
 	include(prefix + ":" + "*/*/*/*");
@@ -6404,27 +8624,32 @@ function doScriptActions() {
 			}
 	}
 	 
- 
  function doStandardChoiceActions(stdChoiceEntry, doExecution, docIndent) {
     var thisDate = new Date(aa.util.now());
     var thisTime = thisDate.getTime();
     var lastEvalTrue = false;
     stopBranch = false;  // must be global scope
+
     logDebug("Executing : " + stdChoiceEntry + ", Elapsed Time: " + ((thisTime - startTime) / 1000) + " Seconds")
+
     var pairObjArray = getScriptAction(stdChoiceEntry);
     if (!doExecution) docWrite(stdChoiceEntry, true, docIndent);
     for (xx in pairObjArray) {
         doObj = pairObjArray[xx];
         if (doExecution) {
             if (doObj.enabled) {
+
                 if (stopBranch)
                     {
                     stopBranch = false;
                     break;
                     }
+
                 logDebug(aa.env.getValue("CurrentUserID") + " : " + stdChoiceEntry + " : #" + doObj.ID + " : Criteria : " + doObj.cri, 2)
+
         try
             {
+
                     if (eval(token(doObj.cri)) || (lastEvalTrue && doObj.continuation)) {
                         logDebug(aa.env.getValue("CurrentUserID") + " : " + stdChoiceEntry + " : #" + doObj.ID + " : Action : " + doObj.act, 2)
     
@@ -6451,10 +8676,12 @@ function doScriptActions() {
             docWrite("|  ", false, docIndent);
             var disableString = "";
             if (!doObj.enabled) disableString = "<DISABLED>";
+
             if (doObj.elseact)
                 docWrite("|  " + doObj.ID + " " + disableString + " " + doObj.cri + " ^ " + doObj.act + " ^ " + doObj.elseact, false, docIndent);
             else
                 docWrite("|  " + doObj.ID + " " + disableString + " " + doObj.cri + " ^ " + doObj.act, false, docIndent);
+
             for (yy in doObj.branch) {
                 doStandardChoiceActions(doObj.branch[yy], false, docIndent + 1);
             }
@@ -6466,24 +8693,30 @@ function doScriptActions() {
     logDebug("Finished: " + stdChoiceEntry + ", Elapsed Time: " + ((thisTime - startTime) / 1000) + " Seconds")
 }
  
- 
 function editAppName(newname)
 	{
 	// 4/30/08 - DQ - Corrected Error where option parameter was ignored
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	capResult = aa.cap.getCap(itemCap)
+
 	if (!capResult.getSuccess())
 		{logDebug("**WARNING: error getting cap : " + capResult.getErrorMessage()) ; return false }
+
 	capModel = capResult.getOutput().getCapModel()
+
 	capModel.setSpecialText(newname)
+
 	setNameResult = aa.cap.editCapByPK(capModel)
+
 	if (!setNameResult.getSuccess())
 		{ logDebug("**WARNING: error setting cap name : " + setNameResult.getErrorMessage()) ; return false }
 
+
 	return true;
 	}
- 
+
  
 function editAppSpecific(itemName,itemValue)  // optional: itemCap
 {
@@ -6530,127 +8763,222 @@ function editAppSpecific(itemName,itemValue)  // optional: itemCap
 		logDebug("ERROR: (editAppSpecific) " + asiFieldResult.getErrorMessage());
 	}
 } 
- 
  function editAppSpecific4ACA(itemName, itemValue) {
+
+
 
     var i = cap.getAppSpecificInfoGroups().iterator();
 
+
+
     while (i.hasNext()) {
+
         var group = i.next();
+
         var fields = group.getFields();
+
         if (fields != null) {
+
             var iteFields = fields.iterator();
+
             while (iteFields.hasNext()) {
+
                 var field = iteFields.next();
+
                 if ((useAppSpecificGroupName && itemName.equals(field.getCheckboxType() + "." + 
 
+
+
 field.getCheckboxDesc())) || itemName.equals(field.getCheckboxDesc())) {
+
                     field.setChecklistComment(itemValue);
+
                 }
+
             }
+
         }
+
     }
+
 }
- 
+
  
 function editBuildingCount(numBuild) // option CapId
 	{
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	cd.setBuildingCount(parseFloat(numBuild));
+
 	cdWrite = aa.cap.editCapDetail(cd)
+
 	if (cdWrite.getSuccess())
 		{ logDebug("Updated building count to " + numBuild); return true; }
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 	} 
- 
  function editCapConditionStatus(pType,pDesc,pStatus,pStatusType) {
+
 	// updates a condition with the pType and pDesc
+
 	// to pStatus and pStatusType, returns true if updates, false if not
+
 	// will not update if status is already pStatus && pStatusType
+
 	// all parameters are required except for pType
 
+
+
 	if (pType==null)
+
 		var condResult = aa.capCondition.getCapConditions(capId);
+
 	else
+
 		var condResult = aa.capCondition.getCapConditions(capId,pType);
+
 		
+
 	if (condResult.getSuccess())
+
 		var capConds = condResult.getOutput();
+
 	else
+
 		{ 
+
 		logMessage("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+
 		logDebug("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+
 		return false;
+
 		}
 
 
+
+
+
 	for (cc in capConds) {
+
 		var thisCond = capConds[cc];
+
 		var cStatus = thisCond.getConditionStatus();
+
 		var cStatusType = thisCond.getConditionStatusType();
+
 		var cDesc = thisCond.getConditionDescription();
+
 		var cImpact = thisCond.getImpactCode();
+
 		logDebug(cStatus + ": " + cStatusType);
 
 
 
+
+
+
+
 		
+
 		if (cDesc.toUpperCase() == pDesc.toUpperCase()) {
+
 			if (!pStatus.toUpperCase().equals(cStatus.toUpperCase())) {
+
 				thisCond.setConditionStatus(pStatus);
+
 				thisCond.setConditionStatusType(pStatusType);
+
 				thisCond.setImpactCode("");
+
 				aa.capCondition.editCapCondition(thisCond);
+
 				return true; // condition has been found and updated
+
 			} else {
+
 				logDebug("ERROR: condition found but already in the status of pStatus and pStatusType");
+
 				return false; // condition found but already in the status of pStatus and pStatusType
+
 			}
+
 		}
+
 	}
+
 	
+
 	logDebug("ERROR: no matching condition found");
+
 	return false; //no matching condition found
 
+
+
 }
+
+
 
 function days_between(date1, date2) {
 
+
+
     // The number of milliseconds in one day
+
     var ONE_DAY = 1000 * 60 * 60 * 24
 
+
+
     // Convert both dates to milliseconds
+
     var date1_ms = date1.getTime()
+
     var date2_ms = date2.getTime()
 
+
+
     // Calculate the difference in milliseconds
+
     var difference_ms = Math.abs(date1_ms - date2_ms)
 
+
+
     // Convert back to days and return
+
     return Math.round(difference_ms/ONE_DAY)
+
+
 
 }
 
+
+
  
- 
+
 function editCapContactAttribute(contactSeq,pAttributeName,pNewAttributeValue)
 	{
+
     	var itemCap = capId;
   	if (arguments.length > 3)
   		itemCap = arguments[3]; // use cap ID specified in args
  
+
 	var oldValue = null;
 	
 	var ca = aa.people.getCapContactByCapID(itemCap).getOutput();
+
 	for (var i in ca)
 		{
 		var attrfound = false;
@@ -6660,6 +8988,7 @@ function editCapContactAttribute(contactSeq,pAttributeName,pNewAttributeValue)
 			continue;
 		
 		var peopAttrArray = p.getAttributes().toArray();
+
 		for (var j in peopAttrArray)
 			{
 			if ( pAttributeName.equals(peopAttrArray[j].getAttributeName()))
@@ -6670,26 +8999,29 @@ function editCapContactAttribute(contactSeq,pAttributeName,pNewAttributeValue)
 				break;
 				}
 			}
+
 		if (attrfound)
 			{
 			logDebug("Updated Cap Contact: " + contactSeq + ", attribute: " + pAttributeName + " from: " + oldValue + " to: " + pNewAttributeValue);
 			ca[i].getCapContactModel().setPeople(p);
 			var editResult = aa.people.editCapContactWithAttribute(ca[i].getCapContactModel());
+
 		}
 	}
 	
 }
  
- 
 function editChannelReported(channel) // option CapId
 	{
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
 	
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
 		
@@ -6704,7 +9036,6 @@ function editChannelReported(channel) // option CapId
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 	} 
- 
 function editConstTypeCode(constTypeCode) // option CapId
 {
 	var itemCap = capId;
@@ -6712,6 +9043,7 @@ function editConstTypeCode(constTypeCode) // option CapId
 		itemCap = arguments[1]; // use cap ID specified in args
 	}
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
+
 	if (!cdScriptObjResult.getSuccess()) {
 		logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage());
 		return false;
@@ -6733,57 +9065,93 @@ function editConstTypeCode(constTypeCode) // option CapId
 	}
 }
  
- 
  function editContactType(existingType,newType)
+
 //Function will change contact types from exsistingType to newType, 
+
 //optional paramter capID
+
 {
+
     var updateCap = capId
+
     if (arguments.length==3)
+
         updateCap=arguments[2]
 
+
+
     capContactResult = aa.people.getCapContactByCapID(updateCap);
+
     if (capContactResult.getSuccess())
+
         {
+
         Contacts = capContactResult.getOutput();
+
         for (yy in Contacts)
+
             {
+
             var theContact = Contacts[yy].getCapContactModel();
+
             if(theContact.getContactType() == existingType)
+
                 {
+
                 theContact.setContactType(newType);
+
                 var peopleModel = theContact.getPeople();
+
                 var contactAddressrs = aa.address.getContactAddressListByCapContact(theContact);
+
                 if (contactAddressrs.getSuccess())
+
                 {
+
                     var contactAddressModelArr = convertContactAddressModelArr(contactAddressrs.getOutput());
+
                     peopleModel.setContactAddressList(contactAddressModelArr);    
+
                 }
+
                 aa.people.editCapContactWithAttribute(theContact);
+
                 //logDebug("Contact for " + theContact.getFullName() + " Updated to " + newType);
+
                 }
+
             }
+
         }
+
     }
 
- 
+
+
  
 function editCreatedBy(nCreatedBy) {
 	// 4/30/08 - DQ - Corrected Error where option parameter was ignored
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var capResult = aa.cap.getCap(itemCap)
+
 	if (!capResult.getSuccess())
 		{logDebug("**WARNING: error getting cap : " + capResult.getErrorMessage()) ; return false }
+
 	var capE = capResult.getOutput();
 	var capEModel = capE.getCapModel()
+
 	capEModel.setCreatedBy(nCreatedBy)
+
 	setCreatedByResult = aa.cap.editCapByPK(capEModel);
+
 	if (!setCreatedByResult.getSuccess())
 		{ logDebug("**WARNING: error setting cap created by : " + setCreatedByResult.getErrorMessage()) ; return false }
+
 	return true;
 } 
- 
 function editEstimatedJobValue(jobValue) // option CapId
 {
 	var itemCap = capId;
@@ -6820,49 +9188,79 @@ function editEstimatedJobValue(jobValue) // option CapId
 	}
 }
  
- 
  function editFirstIssuedDate(issuedDate) { // option CapId
+
     var itemCap = capId
+
+
 
     if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
 
+
+
     var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 
+
+
     if (!cdScriptObjResult.getSuccess()) { 
+
         logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
     
+
     var cdScriptObj = cdScriptObjResult.getOutput();
 
+
+
     if (!cdScriptObj) { 
+
         logDebug("**ERROR: No cap detail script object") ; return false; }
+
+
 
     cd = cdScriptObj.getCapDetailModel();
 
+
+
     var javascriptDate = new Date(issuedDate);
+
+
 
     var vIssuedDate = aa.date.transToJavaUtilDate(javascriptDate.getTime());
 
+
+
     cd.setFirstIssuedDate(vIssuedDate);
+
+
 
     cdWrite = aa.cap.editCapDetail(cd);
 
+
+
     if (cdWrite.getSuccess()) { 
+
         logDebug("updated first issued date to " + vIssuedDate) ; return true; }
+
     else { 
+
         logDebug("**ERROR updating first issued date: " + cdWrite.getErrorMessage()) ; return false ; }
 
+
+
 }
- 
  
 function editHouseCount(numHouse) // option CapId
 	{
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
 	
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
 		
@@ -6877,18 +9275,23 @@ function editHouseCount(numHouse) // option CapId
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 	} 
- 
+
 function editInspectionRequiredFlag(inspType,reqFlag)
 	{
 	var itemCap = capId
 	if (arguments.length > 2) itemCap = arguments[2]; // use cap ID specified in args
 
+
 	var result = aa.inspection.getInspMilestoneByCapID(itemCap);
+
 	if(!result.getSuccess())
 		{ logDebug("**ERROR retrieving inspection milestones: "  + result.getErrorMessage()) ; return false ; }
+
 	inspMilestones= result.getOutput();
+
 	if (!inspMilestones)
 		{ logDebug("No Inspection Milestones found") ; return false ; }
+
 	for (thisM in inspMilestones)
 		{
 		var obj= inspMilestones[thisM];
@@ -6896,6 +9299,7 @@ function editInspectionRequiredFlag(inspType,reqFlag)
 			{
 			if (reqFlag) obj.setInspRequired("Y");
 			else obj.setInspRequired("N");
+
 			result = aa.inspection.updateInspectionMilestone(inspMilestones);
 			if(result.getSuccess())
 				logDebug("inspection milestone updated sucessfully.");
@@ -6905,7 +9309,7 @@ function editInspectionRequiredFlag(inspType,reqFlag)
 		}
 	}
  
- 
+
 function editLookup(stdChoice,stdValue,stdDesc) 
 	{
 	//check if stdChoice and stdValue already exist; if they do, update;
@@ -6930,28 +9334,35 @@ function editLookup(stdChoice,stdValue,stdDesc)
 	else
 		logDebug("**ERROR editing Std Choice " + editResult.getErrorMessage());
 	}
- 
+
  
 function editPriority(priority) // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	cd.setPriority(priority);
+
 	cdWrite = aa.cap.editCapDetail(cd)
+
 	if (cdWrite.getSuccess())
 		{ logDebug("updated priority to " + priority) ; return true; }
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 } 
- 
 function editRefAddrAttr(refAddressPK, label, newValue) {
+
 	try {
 		var rb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.address.RefAddressBusiness").getOutput();
 		var addrResult = aa.address.getRefAddressByPK("" + refAddressPK)
@@ -6959,6 +9370,7 @@ function editRefAddrAttr(refAddressPK, label, newValue) {
 				logDebug("Error getting reference address:  " + addrResult.getErrorMessage());
 				return false;
 			}
+
 		var addrObj = addrResult.getOutput().getRefAddressModel();
 		addressAttrObj = addrObj.getAttributes();
 		var itr = addressAttrObj.iterator();
@@ -6974,24 +9386,34 @@ function editRefAddrAttr(refAddressPK, label, newValue) {
 	} catch (err) {
 		logDebug("A Error occured in editRefAddrAttr: " + err.message);
 	}
+
 }
  
- 
+
 function editRefLicProfAttribute(pLicNum,pAttributeName,pNewAttributeValue)
 	{
+
 	var attrfound = false;
 	var oldValue = null;
+
 	licObj = getRefLicenseProf(pLicNum)
+
 	if (!licObj)
 		{ logDebug("**WARNING Licensed Professional : " + pLicNum + " not found") ; return false }
+
 	licSeqNum = licObj.getLicSeqNbr();
 	attributeType = licObj.getLicenseType();
+
 	if (licSeqNum==null || attributeType=="" || attributeType==null)
 		{ logDebug("**WARNING Licensed Professional Sequence Number or Attribute Type missing") ; return false }
+
 	var peopAttrResult = aa.people.getPeopleAttributeByPeople(licSeqNum, attributeType);
+
 	if (!peopAttrResult.getSuccess())
 		{ logDebug("**WARNING retrieving reference license professional attribute: " + peopAttrResult.getErrorMessage()); return false }
+
 	var peopAttrArray = peopAttrResult.getOutput();
+
 	for (i in peopAttrArray)
 		{
 		if ( pAttributeName.equals(peopAttrArray[i].getAttributeName()))
@@ -7001,6 +9423,7 @@ function editRefLicProfAttribute(pLicNum,pAttributeName,pNewAttributeValue)
 			break;
 			}
 		}
+
 	if (attrfound)
 		{
 		logDebug("Updated Ref Lic Prof: " + pLicNum + ", attribute: " + pAttributeName + " from: " + oldValue + " to: " + pNewAttributeValue)
@@ -7019,7 +9442,6 @@ function editRefLicProfAttribute(pLicNum,pAttributeName,pNewAttributeValue)
 		*/
 		}
 	} 
- 
 /**
 * This function is intended to update reference parcel attributes and refresh the parcel information on the record. 
 * If no parcel number is provided, it will update all parcels that contain the attributeName with the supplied attributeValue
@@ -7032,6 +9454,7 @@ function editRefLicProfAttribute(pLicNum,pAttributeName,pNewAttributeValue)
 * @param parcelNumber {String}
 * @return {Boolean}
 */
+
 function editRefParcelAttribute(attributeName, attributeValue, parcelNumber) //Takes Optional CapId
 {
 	var matchedParcel = false;
@@ -7039,13 +9462,16 @@ function editRefParcelAttribute(attributeName, attributeValue, parcelNumber) //T
 	var updatedParcel = false;
 	var vCapId = null;
 	var pb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.parcel.ParcelBusiness").getOutput();
+
 	if (arguments.length > 3)
 		vCapId = arguments[3];
 	else
 		vCapId = capId;
+
 		logDebug("editRefParcelAttribute: Processing Record " + vCapId.getCustomID())
 	
 	var capPrclArr = aa.parcel.getParcelDailyByCapID(vCapId, null).getOutput();
+
 	if (capPrclArr != null) {
 		for (x in capPrclArr) {
 			// Check if the parcel number passed in matches and update the one, if no parcel number supplied update all parcels
@@ -7091,7 +9517,9 @@ function editRefParcelAttribute(attributeName, attributeValue, parcelNumber) //T
 						}
 					
 					var caprefPrclObj = aa.parcel.warpCapIdParcelModel2CapParcelModel(vCapId, refParcelModel);
+
 					if (caprefPrclObj.getSuccess()) {
+
 						var capPrcl = caprefPrclObj.getOutput();
 						try{
 						capPrcl.setL1ParcelNo(refParcelNumber);
@@ -7114,47 +9542,60 @@ function editRefParcelAttribute(attributeName, attributeValue, parcelNumber) //T
 	}
 	return updatedParcel;
 }  
- 
 function editReportedChannel(reportedChannel) // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	cd.setReportedChannel(reportedChannel);
+
 	cdWrite = aa.cap.editCapDetail(cd);
+
 	if (cdWrite.getSuccess())
 		{ logDebug("updated reported channel to " + reportedChannel) ; return true; }
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 } 
- 
 function editFirstIssuedDate(issuedDate) // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	var javascriptDate = new Date(issuedDate);
 	var vIssuedDate = aa.date.transToJavaUtilDate(javascriptDate.getTime());
+
 	cd.setFirstIssuedDate(vIssuedDate);
+
 	cdWrite = aa.cap.editCapDetail(cd);
+
 	if (cdWrite.getSuccess())
 		{ logDebug("updated first issued date to " + vIssuedDate) ; return true; }
 	else
 		{ logDebug("**ERROR updating first issued date: " + cdWrite.getErrorMessage()) ; return false ; }
 } 
- 
+
 function editTaskACAVisibility(wfstr,visibleTask,visibleComment,restrictRole) // optional process name
 	{
 	// restrictRole is string of five binary digits
@@ -7169,6 +9610,7 @@ function editTaskACAVisibility(wfstr,visibleTask,visibleComment,restrictRole) //
 		processName = arguments[3]; // subprocess
 		useProcess = true;
 		}
+
 	var workflowResult = aa.workflow.getTasks(capId);
  	if (workflowResult.getSuccess())
   	 	var wfObj = workflowResult.getOutput();
@@ -7193,7 +9635,6 @@ function editTaskACAVisibility(wfstr,visibleTask,visibleComment,restrictRole) //
 			}			
 		}
 	} 
- 
 function editTaskComment(wfstr,wfcomment) // optional process name
 	{
 	var useProcess = false;
@@ -7203,6 +9644,7 @@ function editTaskComment(wfstr,wfcomment) // optional process name
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 		}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
  	if (workflowResult.getSuccess())
   	 	var wfObj = workflowResult.getOutput();
@@ -7224,7 +9666,7 @@ function editTaskComment(wfstr,wfcomment) // optional process name
 			}			
 		}
 	}
- 
+
  
 function editTaskDueDate(wfstr, wfdate) // optional process name.  if wfstr == "*", set for all tasks
 {
@@ -7234,6 +9676,7 @@ function editTaskDueDate(wfstr, wfdate) // optional process name.  if wfstr == "
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 	}
+
 	var taskDesc = wfstr;
 	if (wfstr == "*") {
 		taskDesc = "";
@@ -7245,6 +9688,7 @@ function editTaskDueDate(wfstr, wfdate) // optional process name.  if wfstr == "
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if ((fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) || wfstr == "*") && (!useProcess || fTask.getProcessCode().equals(processName))) {
@@ -7261,7 +9705,6 @@ function editTaskDueDate(wfstr, wfdate) // optional process name.  if wfstr == "
 	}
 }
  
- 
 function editTaskSpecific(wfName,itemName,itemValue)  // optional: itemCap
 	{
 	var updated = false;
@@ -7276,6 +9719,7 @@ function editTaskSpecific(wfName,itemName,itemValue)  // optional: itemCap
  		wfObj = workflowResult.getOutput();
  	else
  		{ logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
+
  	//
  	// Loop through workflow tasks
  	//
@@ -7316,7 +9760,7 @@ function editTaskSpecific(wfName,itemName,itemValue)  // optional: itemCap
 	 		}  // found workflow task
 		} // each task
 	}
- 
+
  
 function email(pToEmail, pFromEmail, pSubject, pText) 
 	{
@@ -7327,14 +9771,16 @@ function email(pToEmail, pFromEmail, pSubject, pText)
 	logDebug("Email sent to "+pToEmail);
 	return true;
 	}
- 
+
  
 function emailContact(mSubj,mText)   // optional: Contact Type, default Applicant
 	{
 	var replyTo = "noreply@accela.com";
 	var contactType = "Applicant"
 	var emailAddress = "";
+
 	if (arguments.length == 3) contactType = arguments[2]; // use contact type specified
+
 	var capContactResult = aa.people.getCapContactByCapID(capId);
 	if (capContactResult.getSuccess())
 		{
@@ -7344,6 +9790,7 @@ function emailContact(mSubj,mText)   // optional: Contact Type, default Applican
 				if (Contacts[yy].getEmail() != null)
 					emailAddress = "" + Contacts[yy].getEmail();
 		}
+
 	if (emailAddress.indexOf("@") > 0)
 		{
 		aa.sendMail(replyTo, emailAddress, "", mSubj, mText);
@@ -7352,55 +9799,93 @@ function emailContact(mSubj,mText)   // optional: Contact Type, default Applican
 	else
 		logDebug("Couldn't send email to " + contactType + ", no valid email address");
 	} 
- 
  function encode64(input) {
+
      var keyStr = "ABCDEFGHIJKLMNOP" +
+
                "QRSTUVWXYZabcdef" +
+
                "ghijklmnopqrstuv" +
+
                "wxyz0123456789+/" +
+
                "=";
 
+
+
      input = escape(input);
+
      var output = "";
+
      var chr1, chr2, chr3 = "";
+
      var enc1, enc2, enc3, enc4 = "";
+
      var i = 0;
 
+
+
      do {
+
         chr1 = input.charCodeAt(i++);
+
         chr2 = input.charCodeAt(i++);
+
         chr3 = input.charCodeAt(i++);
 
+
+
         enc1 = chr1 >> 2;
+
         enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+
         enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+
         enc4 = chr3 & 63;
 
+
+
         if (isNaN(chr2)) {
+
            enc3 = enc4 = 64;
+
         } else if (isNaN(chr3)) {
+
            enc4 = 64;
+
         }
 
+
+
         output = output +
+
            keyStr.charAt(enc1) +
+
            keyStr.charAt(enc2) +
+
            keyStr.charAt(enc3) +
+
            keyStr.charAt(enc4);
+
         chr1 = chr2 = chr3 = "";
+
         enc1 = enc2 = enc3 = enc4 = "";
+
      } while (i < input.length);
 
+
+
      return output;
+
   }
 
- 
+
+
  
 function endBranch() {
 	// stop execution of the current std choice
 	stopBranch = true;
 	} 
- 
 function executeASITable(tableArray)
 	{
 	// Executes an ASI table as if it were script commands
@@ -7411,6 +9896,7 @@ function executeASITable(tableArray)
 	//var thisDate = new Date(aa.util.now());
 	//var thisTime = thisDate.getTime();
 	//logDebug("Executing ASI Table, Elapsed Time: "  + ((thisTime - startTime) / 1000) + " Seconds")
+
 	for (xx in tableArray)
 		{
  
@@ -7422,12 +9908,13 @@ function executeASITable(tableArray)
 		if (doTableObj["Enabled"] == "Yes")
 			if (eval(token(myCriteria)))
 				eval(token(myAction));
+
 		} // next action
 	//var thisDate = new Date(aa.util.now());
 	//var thisTime = thisDate.getTime();
 	//logDebug("Finished executing ASI Table, Elapsed Time: "  + ((thisTime - startTime) / 1000) + " Seconds")
 	}
- 
+
  
 //
 // exists:  return true if Value is in Array
@@ -7437,34 +9924,45 @@ function exists(eVal, eArray) {
 	  	if (eArray[ii] == eVal) return true;
 	  return false;
 }
- 
+
  
 function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
+
 	/*
 	Version: 3.2
+
 	Usage:
+
 	licNum			:  Valid CA license number.   Non-alpha, max 8 characters.  If null, function will use the LPs on the supplied CAP ID
 	rlpType			:  License professional type to use when validating and creating new LPs
 	doPopulateRef 	:  If true, will create/refresh a reference LP of this number/type
 	doPopulateTrx 	:  If true, will copy create/refreshed reference LPs to the supplied Cap ID.   doPopulateRef must be true for this to work
 	itemCap			:  If supplied, licenses on the CAP will be validated.  Also will be refreshed if doPopulateRef and doPopulateTrx are true
+
 	returns: non-null string of status codes for invalid licenses
+
 	examples:
+
 	appsubmitbefore   (will validate the LP entered, if any, and cancel the event if the LP is inactive, cancelled, expired, etc.)
 	===============
 	true ^ cslbMessage = "";
 	CAELienseNumber ^ cslbMessage = externalLP_CA(CAELienseNumber,CAELienseType,false,false,null);
 	cslbMessage.length > 0 ^ cancel = true ; showMessage = true ; comment(cslbMessage)
+
 	appsubmitafter  (update all CONTRACTOR LPs on the CAP and REFERENCE with data from CSLB.  Link the CAP LPs to REFERENCE.   Pop up a message if any are inactive...)
 	==============
 	true ^ 	cslbMessage = externalLP_CA(null,"CONTRACTOR",true,true,capId)
 	cslbMessage.length > 0 ^ showMessage = true ; comment(cslbMessage);
+
 	Note;  Custom LP Template Field Mappings can be edited in the script below
 	 */
+
 	var returnMessage = "";
+
 	var workArray = new Array();
 	if (licNum)
 		workArray.push(String(licNum));
+
 	if (itemCap) {
 		var capLicenseResult = aa.licenseScript.getLicenseProf(itemCap);
 		if (capLicenseResult.getSuccess()) {
@@ -7473,6 +9971,7 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 			logDebug("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage());
 			return false;
 		}
+
 		if (capLicenseArr == null || !capLicenseArr.length) {
 			logDebug("**WARNING: no licensed professionals on this CAP");
 		} else {
@@ -7482,17 +9981,21 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 		}
 	} else
 		doPopulateTrx = false; // can't do this without a CAP;
+
 	for (var thisLic = 0; thisLic < workArray.length; thisLic++) {
 		var licNum = workArray[thisLic];
 		var licObj = null;
 		var isObject = false;
+
 		if (typeof(licNum) == "object") // is this one an object or string?
 		{
 			licObj = licNum;
 			licNum = licObj.getLicenseNbr();
 			isObject = true;
 		}
+
 		// Make the call to the California State License Board
+
 		var document;
 		var root;
 		var aURLArgList = "https://www2.cslb.ca.gov/IVR/License+Detail.aspx?LicNum=" + licNum;
@@ -7516,30 +10019,38 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 			returnMessage += "License " + licNum + " : " + errorNode.getText().replace(/\+/g, " ") + " ";
 			continue;
 		}
+
 		var lpBiz = root.getChild("BusinessInfo");
 		var lpStatus = root.getChild("PrimaryStatus");
 		var lpClass = root.getChild("Classifications");
 		var lpBonds = root.getChild("ContractorBond");
 		var lpWC = root.getChild("WorkersComp");
+
 		// Primary Status
 		// 3 = expired, 10 = good, 11 = inactive, 1 = canceled.   We will ignore all but 10 and return text.
 		var stas = lpStatus.getChildren();
 		for (var i = 0; i < stas.size(); i++) {
 			var sta = stas.get(i);
+
 			if (sta.getAttribute("Code").getValue() != "10")
 				returnMessage += "License:" + licNum + ", " + sta.getAttribute("Desc").getValue() + " ";
 		}
+
 		if (doPopulateRef) // refresh or create a reference LP
 		{
 			var updating = false;
+
 			// check to see if the licnese already exists...if not, create.
+
 			var newLic = getRefLicenseProf(licNum)
+
 				if (newLic) {
 					updating = true;
 					logDebug("Updating existing Ref Lic Prof : " + licNum);
 				} else {
 					var newLic = aa.licenseScript.createLicenseScriptModel();
 				}
+
 				if (isObject) // update the reference LP with data from the transactional, if we have some.
 				{
 					if (licObj.getAddress1())
@@ -7605,7 +10116,9 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 					if (licObj.getZip())
 						newLic.setZip(licObj.getZip());
 				}
+
 				// Now set data from the CSLB
+
 				if (lpBiz.getChild("Name").getText() != "")
 					newLic.setBusinessName(unescape(lpBiz.getChild("Name").getText()).replace(/\+/g, " "));
 				if (lpBiz.getChild("Addr1").getText() != "")
@@ -7627,15 +10140,19 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 			newLic.setLicenseType(rlpType);
 			newLic.setLicState("CA"); // hardcode CA
 			newLic.setStateLicense(licNum);
+
 			if (lpBiz.getChild("IssueDt").getText())
 				newLic.setLicenseIssueDate(aa.date.parseDate(lpBiz.getChild("IssueDt").getText()));
 			if (lpBiz.getChild("ExpireDt").getText())
 				newLic.setLicenseExpirationDate(aa.date.parseDate(lpBiz.getChild("ExpireDt").getText()));
 			if (lpBiz.getChild("ReissueDt").getText())
 				newLic.setLicenseLastRenewalDate(aa.date.parseDate(lpBiz.getChild("ReissueDt").getText()));
+
 			var wcs = root.getChild("WorkersComp").getChildren();
+
 			for (var j = 0; j < wcs.size(); j++) {
 				wc = wcs.get(j);
+
 				if (wc.getAttribute("PolicyNo").getValue())
 					newLic.setWcPolicyNo(wc.getAttribute("PolicyNo").getValue());
 				if (wc.getAttribute("InsCoCde").getValue())
@@ -7650,8 +10167,10 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 								newLic.setWcExempt("Y");
 							else
 								newLic.setWcExempt("N");
+
 				break; // only use first
 			}
+
 			//
 			// Do the refresh/create and get the sequence number
 			//
@@ -7660,20 +10179,26 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 				var licSeqNbr = newLic.getLicSeqNbr();
 			} else {
 				var myResult = aa.licenseScript.createRefLicenseProf(newLic);
+
 				if (!myResult.getSuccess()) {
 					logDebug("**WARNING: can't create ref lic prof: " + myResult.getErrorMessage());
 					continue;
 				}
+
 				var licSeqNbr = myResult.getOutput()
 			}
+
 			logDebug("Successfully added/updated License No. " + licNum + ", Type: " + rlpType + " Sequence Number " + licSeqNbr);
+
 			/////
 			/////  Attribute Data -- first copy from the transactional LP if it exists
 			/////
 
+
 			if (isObject) // update the reference LP with attributes from the transactional, if we have some.
 			{
 				var attrArray = licObj.getAttributes();
+
 				if (attrArray) {
 					for (var k in attrArray) {
 						var attr = attrArray[k];
@@ -7681,18 +10206,22 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 					}
 				}
 			}
+
 			/////
 			/////  Attribute Data
 			/////
 			/////  NOTE!  Agencies may have to configure template data below based on their configuration.  Please note all edits
 			/////
+
 			var cbs = root.getChild("Classifications").getChildren();
 			for (var m = 0; m < cbs.size(); m++) {
 				cb = cbs.get(m);
+
 				if (m == 0) {
 					editRefLicProfAttribute(licNum, "CLASS CODE 1", cb.getAttribute("Code").getValue());
 					editRefLicProfAttribute(licNum, "CLASS DESC 1", unescape(cb.getAttribute("Desc").getValue()).replace(/\+/g, " "));
 				}
+
 				if (m == 1) {
 					editRefLicProfAttribute(licNum, "CLASS CODE 2", cb.getAttribute("Code").getValue());
 					editRefLicProfAttribute(licNum, "CLASS DESC 2", unescape(cb.getAttribute("Desc").getValue()).replace(/\+/g, " "));
@@ -7701,18 +10230,22 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 					editRefLicProfAttribute(licNum, "CLASS CODE 3", cb.getAttribute("Code").getValue());
 					editRefLicProfAttribute(licNum, "CLASS DESC 3", unescape(cb.getAttribute("Desc").getValue()).replace(/\+/g, " "));
 				}
+
 				if (m == 3) {
 					editRefLicProfAttribute(licNum, "CLASS CODE 4", cb.getAttribute("Code").getValue());
 					editRefLicProfAttribute(licNum, "CLASS DESC 4", unescape(cb.getAttribute("Desc").getValue()).replace(/\+/g, " "));
 				}
 			}
+
 			var bos = root.getChild("ContractorBond").getChildren();
+
 			for (var n = 0; n < bos.size(); n++) {
 				var bo = bos.get(n);
 				if (bo.getAttribute("BondAmt").getValue())
 					editRefLicProfAttribute(licNum, "BOND AMOUNT", unescape(bo.getAttribute("BondAmt").getValue()));
 				if (bo.getAttribute("BondCancDt").getValue())
 					editRefLicProfAttribute(licNum, "BOND EXPIRATION", unescape(bo.getAttribute("BondCancDt").getValue()));
+
 				// Currently unused but could be loaded into custom attributes.
 				/*
 				aa.print("Bond Surety Type       : " + unescape(bo.getAttribute("SuretyTp").getValue()))
@@ -7725,14 +10258,19 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 				 */
 				break; // only use first bond
 			}
+
 			if (doPopulateTrx) {
 				var lpsmResult = aa.licenseScript.getRefLicenseProfBySeqNbr(servProvCode, licSeqNbr)
 					if (!lpsmResult.getSuccess()) {
 						logDebug("**WARNING error retrieving the LP just created " + lpsmResult.getErrorMessage());
 					}
+
 					var lpsm = lpsmResult.getOutput();
+
 				// Remove from CAP
+
 				var isPrimary = false;
+
 				if (capLicenseArr != null) {
 					for (var currLic in capLicenseArr) {
 						var thisLP = capLicenseArr[currLic];
@@ -7753,6 +10291,7 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 						}
 					}
 				}
+
 				// add the LP to the CAP
 				var asCapResult = aa.licenseScript.associateLpWithCap(itemCap, lpsm)
 					if (!asCapResult.getSuccess()) {
@@ -7760,41 +10299,48 @@ function externalLP_CA(licNum, rlpType, doPopulateRef, doPopulateTrx, itemCap) {
 					} else {
 						logDebug("Associated the CAP to the new LP")
 					}
+
 					// Now make the LP primary again
 					if (isPrimary) {
 						var capLps = getLicenseProfessional(itemCap);
+
 						for (var thisCapLpNum in capLps) {
 							if (capLps[thisCapLpNum].getLicenseNbr().equals(licNum)) {
 								var thisCapLp = capLps[thisCapLpNum];
 								thisCapLp.setPrintFlag("Y");
 								aa.licenseProfessional.editLicensedProfessional(thisCapLp);
 								logDebug("Updated primary flag on Cap LP : " + licNum);
+
 								// adding this return will cause the test script to work without error, even though this is the last statement executed
 								//if (returnMessage.length > 0) return returnMessage;
 								//else return null;
+
 							}
 						}
 					}
 			} // do populate on the CAP
 		} // do populate on the REF
 	} // for each license
+
 	if (returnMessage.length > 0)
 		return returnMessage;
 	else
 		return null;
+
 } // end function 
- 
 function feeAmount(feestr) {
 	// optional statuses to check for (SR5082)
 	//
 	var checkStatus = false;
 	var statusArray = new Array();
+
 	//get optional arguments
 	if (arguments.length > 1) {
 		checkStatus = true;
 		for (var i = 1; i < arguments.length; i++)
 			statusArray.push(arguments[i]);
 	}
+
 	var feeTotal = 0;
 	var feeResult = aa.fee.getFeeItems(capId, feestr, null);
 	if (feeResult.getSuccess()) {
@@ -7803,12 +10349,14 @@ function feeAmount(feestr) {
 		logDebug("**ERROR: getting fee items: " + feeResult.getErrorMessage());
 		return false
 	}
+
 	for (ff in feeObjArr)
 		if (feestr.equals(feeObjArr[ff].getFeeCod()) && (!checkStatus || exists(feeObjArr[ff].getFeeitemStatus(), statusArray)))
 			feeTotal += feeObjArr[ff].getFee()
+
 			return feeTotal;
 } 
- 
+
 //Parameter 1 = CapId, Parameter 2 to n = Fee Code to ignore
 function feeAmountExcept(checkCapId) 
 	{
@@ -7835,7 +10383,7 @@ function feeAmountExcept(checkCapId)
 			
 	return feeTotal;
 	}
- 
+
  
 function feeBalance(feestr) {
 	// Searches payment fee items and returns the unpaid balance of a fee item
@@ -7843,8 +10391,10 @@ function feeBalance(feestr) {
 	var amtFee = 0;
 	var amtPaid = 0;
 	var feeSch;
+
 	if (arguments.length == 2)
 		feeSch = arguments[1];
+
 	var feeResult = aa.fee.getFeeItems(capId);
 	if (feeResult.getSuccess()) {
 		var feeObjArr = feeResult.getOutput();
@@ -7852,6 +10402,7 @@ function feeBalance(feestr) {
 		logDebug("**ERROR: getting fee items: " + capContResult.getErrorMessage());
 		return false
 	}
+
 	for (ff in feeObjArr)
 		if ((!feestr || feestr.equals(feeObjArr[ff].getFeeCod())) && (!feeSch || feeSch.equals(feeObjArr[ff].getF4FeeItemModel().getFeeSchudle()))) {
 			amtFee += feeObjArr[ff].getFee();
@@ -7865,7 +10416,6 @@ function feeBalance(feestr) {
 		}
 	return amtFee - amtPaid;
 }
- 
  
 function feeBalanceFromDate(searchDays,feestr)
 	{
@@ -7883,7 +10433,9 @@ function feeBalanceFromDate(searchDays,feestr)
 	var jsStartDate = new Date(aa.util.now());
 	jsStartDate.setDate(jsStartDate.getDate() + searchDays);
 	
+
 	if (arguments.length == 3) feeSch = arguments[2]; 
+
 	var feeResult=aa.fee.getFeeItems(capId);
 	if (feeResult.getSuccess())
 		{ var feeObjArr = feeResult.getOutput(); }
@@ -7908,7 +10460,6 @@ function feeBalanceFromDate(searchDays,feestr)
 	}
 	return amtFee - amtPaid;
 	} 
- 
 function feeCopyByDateRange(pStartDate, pEndDate) 
 	// gets total for fees assessed during date range
 	// optional fee statuses to check for						
@@ -7920,6 +10471,7 @@ function feeCopyByDateRange(pStartDate, pEndDate)
 	jsEndDate.setHours(23,59,59,999); //Bring EndDate close to midnight
 	
 	//logDebug("Start Date: "+ (jsStartDate.getMonth()+1).toString() +"/"+jsStartDate.getDate()+"/"+jsStartDate.getFullYear() + " End Date: " + (jsEndDate.getMonth()+1).toString() +"/"+jsEndDate.getDate()+"/"+jsEndDate.getFullYear());
+
 	//get optional arguments 
 	var checkStatus = false;
 	var statusArray = new Array(); 
@@ -7929,6 +10481,7 @@ function feeCopyByDateRange(pStartDate, pEndDate)
 		for (var i=2; i<arguments.length; i++)
 			statusArray.push(arguments[i]);
 		}
+
 	//get all feeitems on CAP
 	var feeResult=aa.fee.getFeeItems(capId);
 	if (feeResult.getSuccess())
@@ -7952,18 +10505,20 @@ function feeCopyByDateRange(pStartDate, pEndDate)
 			
 	return feesTotal;
 	}
- 
+
  
 function feeExists(feestr) // optional statuses to check for
 {
 	var checkStatus = false;
 	var statusArray = new Array();
+
 	//get optional arguments
 	if (arguments.length > 1) {
 		checkStatus = true;
 		for (var i = 1; i < arguments.length; i++)
 			statusArray.push(arguments[i]);
 	}
+
 	var feeResult = aa.fee.getFeeItems(capId, feestr, null);
 	if (feeResult.getSuccess()) {
 		var feeObjArr = feeResult.getOutput();
@@ -7971,12 +10526,13 @@ function feeExists(feestr) // optional statuses to check for
 		logDebug("**ERROR: getting fee items: " + capContResult.getErrorMessage());
 		return false
 	}
+
 	for (ff in feeObjArr)
 		if (feestr.equals(feeObjArr[ff].getFeeCod()) && (!checkStatus || exists(feeObjArr[ff].getFeeitemStatus(), statusArray)))
 			return true;
+
 	return false;
 } 
- 
 function feeGetTotByDateRange(pStartDate, pEndDate) 
 	// gets total for fees assessed during date range
 	// optional fee statuses to check for						
@@ -7988,6 +10544,7 @@ function feeGetTotByDateRange(pStartDate, pEndDate)
 	jsEndDate.setHours(23,59,59,999); //Bring EndDate close to midnight
 	
 	//logDebug("Start Date: "+ (jsStartDate.getMonth()+1).toString() +"/"+jsStartDate.getDate()+"/"+jsStartDate.getFullYear() + " End Date: " + (jsEndDate.getMonth()+1).toString() +"/"+jsEndDate.getDate()+"/"+jsEndDate.getFullYear());
+
 	//get optional arguments 
 	var checkStatus = false;
 	var statusArray = new Array(); 
@@ -7997,6 +10554,7 @@ function feeGetTotByDateRange(pStartDate, pEndDate)
 		for (var i=2; i<arguments.length; i++)
 			statusArray.push(arguments[i]);
 		}
+
 	//get all feeitems on CAP
 	var feeResult=aa.fee.getFeeItems(capId);
 	if (feeResult.getSuccess())
@@ -8020,24 +10578,370 @@ function feeGetTotByDateRange(pStartDate, pEndDate)
 			
 	return feesTotal;
 	}
+
  
- 
+//@ts-check
+/**
+ * Find the sum total Quantity of the Fee Items on the current record (global 'capId') which match.
+ * If the supplied Fee Item Code does not exist on the current record, then zero is returned.
+ * @param {string} feestr Fee Item Code to search.
+ * @returns Returns the Quantity field of the given fee item || returns false if there was an error.
+ */
 function feeQty(feestr) {
 	var feeQty = 0;
+
+    if (typeof feestr === typeof undefined || feestr == null || feestr == "") {
+        logDebug("'feeQty' - feestr parameter is undefined, null, or an empty string.");
+        return null;
+    }
+	if (typeof capId === typeof undefined || capId == null) {
+		logDebug("'feeQty' capId is undefined.");
+		return false;
+	}
+
 	var feeResult = aa.fee.getFeeItems(capId, feestr, null);
 	if (feeResult.getSuccess()) {
 		var feeObjArr = feeResult.getOutput();
 	} else {
-		logDebug("**ERROR: getting fee items: " + capContResult.getErrorMessage());
-		return false
+		logDebug("**ERROR: 'feeQty' getting fee items: " + capContResult.getErrorMessage());
+		return false;
 	}
-	for (ff in feeObjArr)
-		if (feestr.equals(feeObjArr[ff].getFeeCod()))
+
+	for (var ff in feeObjArr) {
+		if (feestr.equals(feeObjArr[ff].getFeeCod())) {
 			feeQty += feeObjArr[ff].getFeeUnit();
+		}
+	}
+
 	return feeQty;
 }
  
- 
+/**
+ * FileObject to handle File Disk IO operations
+ * 
+ * @param {*} fileName full file name / or aa.io.File object
+ * @function readFile() reads the file from disk
+ * @function writeLines @param inputArr writes array of strings to the file
+ * @function writeString(str) writes string to the file
+ * @function createFile() creates the file on disk
+ * @function deleteFile() deletes the file from disk
+ * @function attachFileToRecord @param recordId, @param docGroup, @param docCategory, {@param docType}, {@param edmsSourceName} attaches the file to the record
+ * @function writeDataArraysToFile @param arrayOfArrays, @param innerDelimiter, @param outerDelimiter writes array of arrays to the file
+ * @function renameFile @param fileName renames the file on disk. Note: fileName does not include an file extension
+ * @returns {FileObject} file object
+ * 
+ * @requires {@link #getEDMSDefualtSource}
+ * 
+ * @example
+ * var myFile = new FileObject("AccelaTest.csv");
+ * myFile.writeString("Column1,Column2,Column3");
+ * var arrayOfArrays = [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"], ["j", "k", "l"]];
+ * myFile.writeDataArraysToFile(arrayOfArrays, ",", "\n");
+ * myFile.attachFileToRecord(capId, "BLDG_GENERAL", "Construction Plans", "application/vnd.ms-excel");
+ * myFile.renameFile("AccelaTest3");
+ * logDebug("Reading File: " + myFile.readFile());
+ * logDebug("Deleting File: " + myFile.deleteFile());
+ *
+ */
+function FileObject(fileName) {
+    this.fileObj = null;
+    this.fileName = null;
+    this.fileExists = false;
+    // initialize
+    try {
+        if (typeof(fileName)== "object")
+		{
+
+            if (fileName.getClass().toString().equals("class java.lang.String")) // object without getClass, assume that this is a string
+            {
+                this.fileName = fileName;
+                this.fileObj = aa.io.File(fileName); //#EMSE
+                this.filePath = String(this.fileObj);
+            }
+
+            if (fileName.getClass().toString().equals("class java.io.File")){
+                //exploreObject(fileName);
+                this.fileObj = fileName;
+                var parts = String(fileName).split('\\');
+                this.fileName = parts[parts.length - 1];
+                this.filePath = String(this.fileObj);
+            }
+        }
+        else{
+            this.fileName = fileName;
+            this.fileObj = aa.io.File(fileName); //#EMSE
+            this.filePath = String(this.fileObj);
+        }
+
+        
+        if (this.fileObj) {
+            this.fileExists = true;
+            logDebug("File " + this.fileName + " exists.");
+            logDebug("File Path: " + this.filePath);
+        }
+    } catch (ex) {
+        logDebug("**Error occurred while initializing file " + ex);
+    }
+
+    /**
+     * Reads the file from disk
+     * @returns {Array} array of lines
+     */
+    this.readFile = function() {
+        if (!this.fileExists) {
+            logMessage("ERROR", "File " + this.fileName + " does not exists, abort.");
+            logDebug("**Error file does not exists, abort.");
+            return null;
+        }
+        var resultsArr = [];
+        try {
+            // Start reading
+            var filePath = this.filePath;
+            logDebug("Reading file from disk: " + filePath);
+            var br = aa.io.BufferedReader(filePath); //#EMSE
+            var line = null;
+            while ((line = br.readLine()) != null) {
+                resultsArr.push(line);
+            }
+            br.close();
+        } catch (ex) {
+            logMessage("ERROR", "Error occurred while reading file from disk.");
+            logDebug("Error occurred while reading file from disk: " + ex);
+            return null;
+        }
+
+        return resultsArr;
+    };
+
+    /**
+     * Writes array of strings to the file
+     * @param {Array} inputArr Array of lines
+     * @returns {java.io.File} file object
+     */
+    this.writeLines = function(inputArr) {
+        if (!this.fileExists) {
+            this.createFile();
+        }
+        var writer = null;
+        try {
+            var filePath = this.filePath;
+            writer = aa.io.BufferedWriter(filePath); //EMSE
+            for (i in inputArr) {
+                if (i > 0)
+                    writer.newLine();
+                writer.write(inputArr[i]);
+            }
+        } catch (e) {
+            logMessage("ERROR", "An error occurred while writing to file: " + e);
+            logDebug("**Error: An error occurred while writing to file: " + e);
+            return false;
+        } finally {
+            try {
+                if (writer != null)
+                    writer.close();
+            } catch (writerCloseEx) {
+                logMessage("ERROR", "An error occurred while closing file writer: " + writerCloseEx);
+                logDebug("**Error: An error occurred while closing file writer: " + writerCloseEx);
+                return false;
+            }
+        }
+
+        return true;
+    };
+	
+
+    /**
+     * Writes strings to file
+     * @param {String} str
+     * @returns {java.io.File} file object
+     */
+    this.writeString = function(str) {
+        if (!this.fileExists) {
+            this.createFile();
+        }
+        var writer = null;
+        try {
+            var filePath = this.filePath;
+            writer = aa.io.BufferedWriter(filePath); //#EMSE
+            writer.write(str);
+        } catch (e) {
+            logMessage("ERROR", "An error occurred while writing to file: " + e);
+            logDebug("**Error: An error occurred while writing to file: " + e);
+            return false;
+        } finally {
+            try {
+                if (writer != null)
+                    writer.close();
+            } catch (writerCloseEx) {
+                logMessage("ERROR", "An error occurred while closing file writer: " + writerCloseEx);
+                logDebug("**Error: An error occurred while closing file writer: " + writerCloseEx);
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    this.writeDataArraysToFile = function(arrayOfArrays, innerDelimiter, outerDelimiter) {
+        if (!this.fileExists) {
+            this.createFile();
+        }
+        if (isEmpty(innerDelimiter)) innerDelimiter = ",";
+        if (isEmpty(outerDelimiter)) outerDelimiter = "\n";
+
+        try{
+            this.fileObj = aa.io.writeDataArraysToFile(arrayOfArrays, this.fileName, innerDelimiter, outerDelimiter);
+
+            if (this.fileObj) {
+                this.fileExists = true;
+                logDebug("File " + this.fileName + " has been updated with" + arrayOfArrays.length + " rows.");
+            }
+        }
+        catch (e) {
+            logDebug("**Error: An error occurred while writing to file: " + e);
+            return false;
+        }
+
+       
+    }
+    /**
+     * Creates the file on Disk
+     * @param {string} fullFileName *OPTIONAL Full file name including path and extension
+     */
+    this.createFile = function() {
+        if (this.fileExists) {
+            logMessage("ERROR", "File " + this.fileName + " already exists, abort.");
+            logDebug("**Error file already exists, abort.");
+            return false;
+        }
+        try {
+            if (!this.fileObj.createNewFile()) {
+                logMessage("ERROR", "File " + this.fileName + " was not created successfully!");
+                logDebug("**Error: File " + this.fileName + " was not created successfully!");
+            } else {
+                logMessage("INFO", "File " + this.fileName + " was created successfully!");
+                logDebug("File " + this.fileName + " was created successfully!");
+                this.fileExists = true;
+                return true;
+            }
+        } catch (e) {
+            logMessage("ERROR", "An error occurred while creating file: " + e);
+            logDebug("**Error: An error occurred while creating file: " + e);
+        } finally {
+            if (!this.fileExists) {
+                logMessage("ERROR", "File was not created successfully.");
+            }
+        }
+
+        return false;
+    };
+	
+	this.renameFile = function(fileName) {
+		 if (!this.fileExists) {
+            logMessage("ERROR", "File " + this.fileName + " does not exist, abort.");
+            logDebug("**Error file does not exist, abort.");
+            return false;
+        }
+        try {
+            if (this.fileExists) {
+                var fileRenamed = aa.io.renameFile(this.fileObj, fileName);
+
+                if(fileRenamed){
+                    this.fileName = fileName;
+                    this.fileObj = fileRenamed;
+                    this.filePath = String(this.fileObj);
+                }
+                logDebug("**INFO: File " + this.fileName + " was renamed successfully to " + fileName);
+            } else {
+                logDebug("File " + this.fileName + " was not renamed successfully!");
+                this.fileExists = true;
+                return true;
+            }
+        } catch (e) {
+            logMessage("ERROR", "An error occurred while renaming file: " + e);
+            logDebug("**Error: An error occurred while renaming file: " + e);
+        }
+	}
+
+    this.attachFileToRecord = function(recordId, docGroup, docCategory, docType, edmsSourceName) {
+
+        try {
+            if(isEmpty(docType)) docType = "text/plain";
+            if(isEmpty(edmsSourceName)) edmsSourceName = getEDMSDefualtSource();
+
+            var itemCap = aa.cap.getCap(recordId).getOutput();
+            var itemAppTypeResult = itemCap.getCapType();
+	        var itemAppTypeString = itemAppTypeResult.toString(); 
+	        var itemAppTypeArray = itemAppTypeString.split("/");
+            var itemModule = itemAppTypeArray[0];
+
+            var docContent = aa.document.newDocumentContentModel().getOutput()
+            var sbs = aa.io.FileInputStream(this.filePath);
+            docContent.setDocInputStream(sbs)
+            var newdoc = aa.document.newDocumentModel().getOutput()
+            newdoc.setCapID(recordId)
+            newdoc.setEntityID(recordId)
+            newdoc.setEntityType('CAP')
+            newdoc.setDocGroup(docGroup)
+            newdoc.setDocCategory(docCategory)
+            newdoc.setDocumentContent(docContent)
+            newdoc.setFileName(this.fileName)
+            newdoc.setDocType(docType)
+            newdoc.setSourceName(edmsSourceName);
+            newdoc.setSource('STANDARD')
+            newdoc.setRecFulNam('ADMIN')
+            newdoc.setRecStatus('A')
+            newdoc.setModuleName(itemModule)
+            newdoc.setServiceProviderCode(aa.getServiceProviderCode())
+            var result = aa.document.createDocument(newdoc)
+            if (result && result.getSuccess()) {
+                var resultOutput = result.getOutput();
+                logDebug("Successfully attached file to record: " + resultOutput);
+                return true;
+            }else{
+                logDebug("Error attaching file to record: " + result.getErrorMessage())
+                return false;
+            }
+        } catch (ex) {
+            logDebug("Error attaching file to record: " + ex + " Line: " + ex.lineNumber);
+            return false;
+        }
+   
+    }
+	
+	 /**
+     * Creates the file on Disk
+     * @param {string} fullFileName *OPTIONAL Full file name including path and extension
+     */
+    this.deleteFile = function() {
+        if (!this.fileExists) {
+            logMessage("ERROR", "File " + this.fileName + " does not exist, abort.");
+            logDebug("**Error file does not exist, abort.");
+            return false;
+        }
+        try {
+            if (this.fileExists) {
+				var fileDeletedResponse = aa.io.deleteFile(this.fileObj);
+                logMessage("INFO", "File " + this.fileName + " was deleted successfully!");
+                logDebug("**INFO: File " + this.fileName + " was deleted successfully!");
+            } else {
+                logMessage("INFO", "File " + this.fileName + " was not deleted successfully!");
+                logDebug("File " + this.fileName + " was not deleted successfully!");
+                this.fileExists = true;
+                return true;
+            }
+        } catch (e) {
+            logMessage("ERROR", "An error occurred while deleting file: " + e);
+            logDebug("**Error: An error occurred while deleting file: " + e);
+        } finally {
+            if (!this.fileExists) {
+                logMessage("ERROR", "File was not deleted successfully.");
+            }
+        }
+
+        return false;
+    };
+} 
 //@ts-check
 /**
  * Generates a report and saves it to disk and returns it.
@@ -8049,21 +10953,25 @@ function feeQty(feestr) {
  * @returns {object} reportFile
  */
 function generateReport(itemCap, reportName, module, parameters) {
+
   //returns the report file which can be attached to an email.
   var user = currentUserID;   // Setting the User Name
   var report;
   var reportOutput;
   var reportInfoModel = aa.reportManager.getReportInfoModelByName(reportName);
+
   if (reportInfoModel && reportInfoModel.getSuccess()) {
     report = reportInfoModel.getOutput();
   }
+
   if (report) {
-    report = report.getOutput();
     report.setModule(module);
     report.setCapId(itemCap.getID1() + "-" + itemCap.getID2() + "-" + itemCap.getID3());
     report.setReportParameters(parameters);
     report.getEDMSEntityIdModel().setAltId(itemCap.getCustomID());
+
     var permit = aa.reportManager.hasPermission(reportName, user);
+
     if (permit.getOutput().booleanValue()) {
       var reportResult = aa.reportManager.getReportResult(report);
       if (reportResult) {
@@ -8084,8 +10992,8 @@ function generateReport(itemCap, reportName, module, parameters) {
     return false;
   }
 } 
- 
 function generateReport4Workflow(itemCap,reportName,module,parameters) {
+
   //returns the report file which can be attached to an email.
   var user = currentUserID;   // Setting the User Name
   var report = aa.reportManager.getReportModelByName(reportName);
@@ -8093,7 +11001,9 @@ function generateReport4Workflow(itemCap,reportName,module,parameters) {
   //report.setModule(module);
   //report.setCapId(itemCap);
   //report.setReportParameters(parameters); 
+
   var permit = aa.reportManager.hasPermission(reportName,user);
+
   if (permit.getOutput().booleanValue()) {
     var reportResult = aa.reportManager.runReport(parameters,report);
     if(reportResult) {
@@ -8108,13 +11018,13 @@ function generateReport4Workflow(itemCap,reportName,module,parameters) {
     return false;
   }
 } 
- 
 function genericTemplateObject(gtmp) {
 	this.ASI = new Array(); //Condition Array
 	this.ASIT = new Array();
 	this.hasASI = false;
 	this.hasTables = false;
 	this.template = gtmp;
+
 	var formGroupsObj = template.getTemplateForms();
 	var formGroups = new Array();
 	if (formGroupsObj != null) {
@@ -8135,6 +11045,7 @@ function genericTemplateObject(gtmp) {
 			}
 		}
 	}
+
 	var tableGroupsObj = template.getTemplateTables();
 	var tableGroups = new Array();
 	if (tableGroupsObj != null) {
@@ -8162,38 +11073,62 @@ function genericTemplateObject(gtmp) {
 			}
 		}
 	}
+
 	return this;
 } 
- 
  function getACADocDownloadParam4Notification(params,acaUrl,docModel) {
+
 	// pass in a hashtable and it will add the additional parameters to the table
 
+
+
 	addParameter(params, "$$acaDocDownloadUrl$$", getACADocumentDownloadUrl(acaUrl,docModel));
+
 	
+
 	return params;	
+
 }
 
- 
+
+
  
  function getACADocumentDownloadUrl(acaUrl,documentModel) {
+
    	
+
    	//returns the ACA URL for supplied document model
 
+
+
 	var acaUrlResult = aa.document.getACADocumentUrl(acaUrl, documentModel);
+
 	if(acaUrlResult.getSuccess())
+
 	{
+
 		acaDocUrl = acaUrlResult.getOutput();
+
 		return acaDocUrl;
+
 	}
+
 	else
+
 	{
+
 		logDebug("Error retrieving ACA Document URL: " + acaUrlResult.getErrorType());
+
 		return false;
+
 	}
+
 }
 
 
- 
+
+
+
  
 /**
  * Adds a parameter $$acaRecordUrl$$ to a hashtable by buiding a URL path 
@@ -8213,15 +11148,19 @@ function genericTemplateObject(gtmp) {
  *			acaUrl - URL path for the record in ACA
  *
  */
+
 function getACARecordParam4Notification(params,acaUrl) {
+
 	itemCap = (arguments.length == 3) ? arguments[2] : capId;
+
 	addParameter(params, "$$acaRecordUrl$$", getACARecordURL(acaUrl,itemCap));
 
-
 	return params;	
+
 }
 
- 
+
+
  
 /**
  * Builds a URL path for the record in ACA
@@ -8244,14 +11183,16 @@ function getACARecordURL(acaUrl) {
  	var id2 = itemCap.ID2;
  	var id3 = itemCap.ID3;
  	var itemCapModel = aa.cap.getCap(itemCap).getOutput().getCapModel();
+
    	acaRecordUrl = acaUrl + "/urlrouting.ashx?type=1000";   
 	acaRecordUrl += "&Module=" + itemCapModel.getModuleName();
 	acaRecordUrl += "&capID1=" + id1 + "&capID2=" + id2 + "&capID3=" + id3;
 	acaRecordUrl += "&agencyCode=" + aa.getServiceProviderCode();
 	if(matches(enableCustomWrapper,"Yes","YES")) acaRecordUrl += "&FromACA=Y";
+
    	return acaRecordUrl;
+
 } 
- 
 /**
  * Builds a URL path for the record in ACA that is appended to the ACA Site URL.
  * 
@@ -8261,8 +11202,11 @@ function getACARecordURL(acaUrl) {
  *		acaUrl - URL path for the record in ACA
  *
  */
+
 function getACAUrl(){
+
 	// returns the path to the record on ACA.  Needs to be appended to the site
+
 	itemCap = (arguments.length == 1) ? arguments[0] : capId;
 	var enableCustomWrapper = lookup("ACA_CONFIGS","ENABLE_CUSTOMIZATION_PER_PAGE");
    	var acaUrl = "";
@@ -8270,19 +11214,22 @@ function getACAUrl(){
 	var id2 = itemCap.getID2();
 	var id3 = itemCap.getID3();
 	var itemCapModel = aa.cap.getCap(itemCap).getOutput().getCapModel();
+
 	acaUrl += "/urlrouting.ashx?type=1000";
 	acaUrl += "&Module=" + itemCapModel.getModuleName();
 	acaUrl += "&capID1=" + id1 + "&capID2=" + id2 + "&capID3=" + id3;
 	acaUrl += "&agencyCode=" + aa.getServiceProviderCode();
 	if(matches(enableCustomWrapper,"Yes","YES")) acaUrl += "&FromACA=Y";
+
 	return acaUrl;
 } 
- 
 function getAddressCountyByAddressType(aType) { //optional capId parameter
 	var itemCap = capId
     if (arguments.length > 1)
         itemCap = arguments[1]; // use cap ID specified in args
+
     var addResult = aa.address.getAddressByCapId(itemCap);
+
     if (addResult.getSuccess()) {
     	var addArray = addResult.getOutput();
     	for (var jj in addArray) {
@@ -8297,15 +11244,17 @@ function getAddressCountyByAddressType(aType) { //optional capId parameter
     	logDebug("Could not return address: " + addResult.getErrorMessage());
     	return false;
     }
+
     logDebug("Could not find an address of type: " + aType);
     return false;
 } 
- 
 function getAddressLineByAddressType(aType) { //optional capId parameter
 	var itemCap = capId
     if (arguments.length > 1)
         itemCap = arguments[1]; // use cap ID specified in args
+
     var addResult = aa.address.getAddressByCapId(itemCap);
+
     if (addResult.getSuccess()) {
     	var addArray = addResult.getOutput();
     	for (var jj in addArray) {
@@ -8320,55 +11269,97 @@ function getAddressLineByAddressType(aType) { //optional capId parameter
     	logDebug("Could not return address: " + addResult.getErrorMessage());
     	return false;
     }
+
     logDebug("Could not find an address of type: " + aType);
     return false;
 } 
- 
  function getAppConditions(params,pType,pStatus,pDesc,pImpact) {
 
+
+
     if (pType==null)
+
         var condResult = aa.capCondition.getCapConditions(capId);
+
     else
+
         var condResult = aa.capCondition.getCapConditions(capId,pType);
+
         
+
     if (condResult.getSuccess())
+
         var capConds = condResult.getOutput();
+
     else { 
+
         logMessage("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+
         logDebug("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
+
     }
+
     
+
     var cStatus;
+
     var cDesc;
+
     var cImpact;
+
     
+
     var condForEmail = "";
 
+
+
     for (cc in capConds) {
+
         var thisCond = capConds[cc];
+
         var cStatus = thisCond.getConditionStatus();
+
         var cDesc = thisCond.getConditionDescription();
+
         var cPubDisplayMessage = thisCond.getDispPublicDisplayMessage();
+
         var cImpact = thisCond.getImpactCode();
+
         var cType = thisCond.getConditionType();
+
         if (cStatus==null)
+
             cStatus = " ";
+
         if (cDesc==null)
+
             cDesc = " ";
+
         if (cImpact==null)
+
             cImpact = " ";
+
         //Look for matching condition
+
         
+
         if ( (pStatus==null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc==null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact==null || pImpact.toUpperCase().equals(cImpact.toUpperCase())))
+
             condForEmail += cDesc + ": " + cPubDisplayMessage;
+
     }
+
+
 
     addParameter(params, "$$conditions$$", condForEmail);
 
+
+
     return params; 
 
+
+
 }
- 
  
 function getAppIdByASI(ASIName,ASIValue,ats)
 	//
@@ -8378,17 +11369,20 @@ function getAppIdByASI(ASIName,ASIValue,ats)
 	var ata = ats.split("/");
 	if (ata.length != 4)
 		logDebug("**ERROR: getAppIdByASI in appMatch.  The following Application Type String is incorrectly formatted: " + ats);
+
 	var getCapResult = aa.cap.getCapIDsByAppSpecificInfoField(ASIName,ASIValue);
 	if (getCapResult.getSuccess())
 		var apsArray = getCapResult.getOutput();
 	else
 		{ logDebug( "**ERROR: getting caps by app type: " + getCapResult.getErrorMessage()) ; return null }
 		
+
 	for (aps in apsArray)
 		{
 		myCap = aa.cap.getCap(apsArray[aps].getCapID()).getOutput();
 		myAppTypeString = myCap.getCapType().toString();
 		myAppTypeArray = myAppTypeString.split("/");
+
 		isMatch = true;
 		for (xx in ata)
 			if (!ata[xx].equals(myAppTypeArray[xx]) && !ata[xx].equals("*"))
@@ -8401,7 +11395,7 @@ function getAppIdByASI(ASIName,ASIValue,ats)
 			}
 		}
 	}
- 
+
  
 function getAppIdByName(gaGroup,gaType,gaName)
 //
@@ -8414,6 +11408,7 @@ function getAppIdByName(gaGroup,gaType,gaName)
 	else
 		{ logDebug( "**ERROR: getting caps by app type: " + getCapResult.getErrorMessage()) ; return null }
 		
+
 	for (aps in apsArray)
 		{
 		var myCap = aa.cap.getCap(apsArray[aps].getCapID()).getOutput();
@@ -8424,7 +11419,6 @@ function getAppIdByName(gaGroup,gaType,gaName)
 			}
 		}
 	}
- 
  
 function getApplication(appNum) 
 //
@@ -8437,7 +11431,7 @@ function getApplication(appNum)
 	else
 		{ logDebug( "**ERROR: getting cap id (" + appNum + "): " + getCapResult.getErrorMessage()) }
 	}
- 
+
  
 function getAppSpecific(itemName)  // optional: itemCap
 {
@@ -8474,7 +11468,7 @@ function getAppSpecific(itemName)  // optional: itemCap
 	else
 		{ logDebug( "**ERROR: getting app specific info for Cap : " + appSpecInfoResult.getErrorMessage()) }
 }
- 
+
  
 function getCapByAddress(ats) 
 //
@@ -8522,8 +11516,10 @@ function getCapByAddress(ats)
 			for (xx in ata)
 				if (!ata[xx].equals(appTypeArray[xx]) && !ata[xx].equals("*"))
 					isMatch = false;
+
 		if (isMatch)			
 			retArr.push(capIdArray[cappy]);
+
 		} // loop through related caps
 		
 	if (retArr.length > 1)
@@ -8535,12 +11531,14 @@ function getCapByAddress(ats)
 		return retArr[0];
 		
 	}
- 
+
  
 function getCapId() {
+
 	var s_id1 = aa.env.getValue("PermitId1");
 	var s_id2 = aa.env.getValue("PermitId2");
 	var s_id3 = aa.env.getValue("PermitId3");
+
 	if (s_id1 == null || s_id1 == ""
 		 || s_id2 == null || s_id2 == ""
 		 || s_id3 == null || s_id3 == "") {
@@ -8555,7 +11553,6 @@ function getCapId() {
 	}
 }
  
- 
 function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,pDesc,pImpact) {
 	var matchingCapArray = new Array();
 	var c = aa.people.getCapContactByCapID(itemCap).getOutput()
@@ -8566,7 +11563,9 @@ function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,
 		       {
 			var p = con.getPeople();
 			var psm = aa.people.createPeopleModel().getOutput()
+
 			psm.setContactSeqNumber(con.getCapContactModel().getRefContactNumber());
+
 			var cResult = aa.people.getCapIDsByRefContact(psm);  // needs 7.1
 			if (cResult.getSuccess()) {
 				var cList = cResult.getOutput();
@@ -8577,6 +11576,7 @@ function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,
 							var condResult = aa.capCondition.getCapConditions(thisCapId);
 						else
 							var condResult = aa.capCondition.getCapConditions(thisCapId,pType);
+
 						if (condResult.getSuccess())
 							var capConds = condResult.getOutput();
 						else
@@ -8585,9 +11585,11 @@ function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,
 							logDebug("**ERROR: getting cap conditions: " + condResult.getErrorMessage());
 							return false;
 							}
+
 						var cStatus;
 						var cDesc;
 						var cImpact;
+
 						for (cc in capConds)
 							{
 							var thisCond = capConds[cc];
@@ -8602,6 +11604,7 @@ function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,
 							if (cImpact==null)
 								cImpact = " ";
 							//Look for matching condition
+
 							if ( (pStatus==null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc==null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact==null || pImpact.toUpperCase().equals(cImpact.toUpperCase())))
 								matchingCapArray.push(thisCapId);
 							}
@@ -8611,12 +11614,12 @@ function getCapsWithConditionsRelatedByRefContact(itemCap,capType,pType,pStatus,
 			}
 		}
 	} 
- 
 function getChildren(pCapType, pParentCapId) 
 	{
 	// Returns an array of children capId objects whose cap type matches pCapType parameter
 	// Wildcard * may be used in pCapType, e.g. "Building/Commercial/*/*"
 	// Optional 3rd parameter pChildCapIdSkip: capId of child to skip
+
 	var retArray = new Array();
 	if (pParentCapId!=null) //use cap in parameter 
 		var vCapId = pParentCapId;
@@ -8639,6 +11642,7 @@ function getChildren(pCapType, pParentCapId)
 	var childArray = getCapResult.getOutput();
 	if (!childArray.length)
 		{ logDebug( "**WARNING: getChildren function found no children"); return null ; }
+
 	var childCapId;
 	var capTypeStr = "";
 	var childTypeArray;
@@ -8648,6 +11652,7 @@ function getChildren(pCapType, pParentCapId)
 		childCapId = childArray[xx].getCapID();
 		if (childCapIdSkip!=null && childCapIdSkip.getCustomID().equals(childCapId.getCustomID())) //skip over this child
 			continue;
+
 		capTypeStr = aa.cap.getCap(childCapId).getOutput().getCapType().toString();	// Convert cap type to string ("Building/A/B/C")
 		childTypeArray = capTypeStr.split("/");
 		isMatch = true;
@@ -8665,9 +11670,9 @@ function getChildren(pCapType, pParentCapId)
 		
 	logDebug("getChildren returned " + retArray.length + " capIds");
 	return retArray;
+
 	}
 	
- 
  
 function getChildTasks(taskName) {
 	var childTasks = new Array();
@@ -8675,6 +11680,7 @@ function getChildTasks(taskName) {
 	var itemCap = capId
 		if (arguments.length > 1)
 			itemCap = arguments[1]; // use cap ID specified in args
+
 		var workflowResult = aa.workflow.getTaskItems(itemCap, taskName, null, null, null, null);
 	var wfObj = workflowResult.getOutput();
 	for (i in wfObj) {
@@ -8688,42 +11694,51 @@ function getChildTasks(taskName) {
 				}
 		}
 	}
+
 	for (i in wfObj) {
 		var fTaskSM = wfObj[i];
 		if (fTaskSM.getProcessID() == childId)
 			childTasks.push(fTaskSM)
 	}
+
 	return childTasks;
+
 }
- 
  
 function getCAPConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var resultArray = new Array();
 	var lang = "en_US";
+
 	var bizDomainModel4Lang = aa.bizDomain.getBizDomainByValue("I18N_SETTINGS", "I18N_DEFAULT_LANGUAGE");
 	if (bizDomainModel4Lang.getSuccess())
 		lang = bizDomainModel4Lang.getOutput().getDescription();
+
 	if (arguments.length > 4)
 		var itemCap = arguments[4]; // use cap ID specified in args
 	else
 		var itemCap = capId;
+
 	////////////////////////////////////////
 	// Check Records
 	////////////////////////////////////////
+
 	if (pType == null)
 		var condResult = aa.capCondition.getCapConditions(itemCap);
 	else
 		var condResult = aa.capCondition.getCapConditions(itemCap, pType);
+
 	if (condResult.getSuccess())
 		var capConds = condResult.getOutput();
 	else {
 		var capConds = new Array();
 		logDebug("**WARNING: getting cap conditions: " + condResult.getErrorMessage());
 	}
+
 	var cStatus;
 	var cDesc;
 	var cImpact;
+
 	for (cc in capConds) {
 		var thisCond = capConds[cc];
 		var cStatus = thisCond.getConditionStatus();
@@ -8732,6 +11747,7 @@ function getCAPConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		var cType = thisCond.getConditionType();
 		var cComment = thisCond.getConditionComment();
 		var cExpireDate = thisCond.getExpireDate();
+
 		if (cStatus == null)
 			cStatus = " ";
 		if (cDesc == null)
@@ -8739,6 +11755,7 @@ function getCAPConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		if (cImpact == null)
 			cImpact = " ";
 		//Look for matching condition
+
 		if ((pStatus == null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc == null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact == null || pImpact.toUpperCase().equals(cImpact.toUpperCase()))) {
 			var r = new condMatchObj;
 			r.objType = "Record";
@@ -8749,22 +11766,28 @@ function getCAPConditions(pType, pStatus, pDesc, pImpact) // optional capID
 			r.description = cDesc;
 			r.comment = cComment;
 			r.expireDate = cExpireDate;
+
 			var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 			r.arObject = langCond;
 			r.arDescription = langCond.getResConditionDescription();
 			r.arComment = langCond.getResConditionComment();
+
 			resultArray.push(r);
 		}
 	}
+
 	return resultArray;
 }
 function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var resultArray = new Array();
 	var lang = "en_US";
+
 	var bizDomainModel4Lang = aa.bizDomain.getBizDomainByValue("I18N_SETTINGS", "I18N_DEFAULT_LANGUAGE");
 	if (bizDomainModel4Lang.getSuccess())
 		lang = bizDomainModel4Lang.getOutput().getDescription();
+
 	if (arguments.length > 4)
 		var itemCap = arguments[4]; // use cap ID specified in args
 	else
@@ -8772,6 +11795,7 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 	////////////////////////////////////////
 	// Check Address
 	////////////////////////////////////////
+
 	var addrResult = aa.address.getAddressByCapId(itemCap);
 	if (!addrResult.getSuccess()) {
 		logDebug("**WARNING: getting CAP addresses: " + addrResult.getErrorMessage());
@@ -8781,6 +11805,7 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		if (!addrArray)
 			addrArray = new Array();
 	}
+
 	for (var thisAddr in addrArray)
 		if (addrArray[thisAddr].getRefAddressId()) {
 			addCondResult = aa.addressCondition.getAddressConditions(addrArray[thisAddr].getRefAddressId())
@@ -8790,6 +11815,7 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 				} else {
 					var addrCondArray = addCondResult.getOutput();
 				}
+
 				for (var thisAddrCond in addrCondArray) {
 					var thisCond = addrCondArray[thisAddrCond];
 					var cType = thisCond.getConditionType();
@@ -8799,6 +11825,7 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					var cType = thisCond.getConditionType();
 					var cComment = thisCond.getConditionComment();
 					var cExpireDate = thisCond.getExpireDate();
+
 					if (cType == null)
 						cType = " ";
 					if (cStatus == null)
@@ -8807,6 +11834,7 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 						cDesc = " ";
 					if (cImpact == null)
 						cImpact = " ";
+
 					if ((pType == null || pType.toUpperCase().equals(cType.toUpperCase())) && (pStatus == null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc == null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact == null || pImpact.toUpperCase().equals(cImpact.toUpperCase()))) {
 						var r = new condMatchObj;
 						r.objType = "Address";
@@ -8817,23 +11845,29 @@ function getAddressConditions(pType, pStatus, pDesc, pImpact) // optional capID
 						r.description = cDesc;
 						r.comment = cComment;
 						r.expireDate = cExpireDate;
+
 						var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 						r.arObject = langCond;
 						r.arDescription = langCond.getResConditionDescription();
 						r.arComment = langCond.getResConditionComment();
+
 						resultArray.push(r);
 					}
 				}
 		}
+
 	return resultArray;
 }
 function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var resultArray = new Array();
 	var lang = "en_US";
+
 	var bizDomainModel4Lang = aa.bizDomain.getBizDomainByValue("I18N_SETTINGS", "I18N_DEFAULT_LANGUAGE");
 	if (bizDomainModel4Lang.getSuccess())
 		lang = bizDomainModel4Lang.getOutput().getDescription();
+
 	if (arguments.length > 4)
 		var itemCap = arguments[4]; // use cap ID specified in args
 	else
@@ -8841,6 +11875,7 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 	////////////////////////////////////////
 	// Check Parcel
 	////////////////////////////////////////
+
 	var parcResult = aa.parcel.getParcelDailyByCapID(itemCap, null);
 	if (!parcResult.getSuccess()) {
 		logDebug("**WARNING: getting CAP addresses: " + parcResult.getErrorMessage());
@@ -8850,6 +11885,7 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		if (!parcArray)
 			parcArray = new Array();
 	}
+
 	for (var thisParc in parcArray)
 		if (parcArray[thisParc].getParcelNumber()) {
 			parcCondResult = aa.parcelCondition.getParcelConditions(parcArray[thisParc].getParcelNumber())
@@ -8859,6 +11895,7 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 				} else {
 					var parcCondArray = parcCondResult.getOutput();
 				}
+
 				for (var thisParcCond in parcCondArray) {
 					var thisCond = parcCondArray[thisParcCond];
 					var cType = thisCond.getConditionType();
@@ -8868,6 +11905,7 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					var cType = thisCond.getConditionType();
 					var cComment = thisCond.getConditionComment();
 					var cExpireDate = thisCond.getExpireDate();
+
 					if (cType == null)
 						cType = " ";
 					if (cStatus == null)
@@ -8876,6 +11914,7 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 						cDesc = " ";
 					if (cImpact == null)
 						cImpact = " ";
+
 					if ((pType == null || pType.toUpperCase().equals(cType.toUpperCase())) && (pStatus == null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc == null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact == null || pImpact.toUpperCase().equals(cImpact.toUpperCase()))) {
 						var r = new condMatchObj;
 						r.objType = "Parcel";
@@ -8886,23 +11925,29 @@ function getParcelConditions(pType, pStatus, pDesc, pImpact) // optional capID
 						r.description = cDesc;
 						r.comment = cComment;
 						r.expireDate = cExpireDate;
+
 						var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 						r.arObject = langCond;
 						r.arDescription = langCond.getResConditionDescription();
 						r.arComment = langCond.getResConditionComment();
+
 						resultArray.push(r);
 					}
 				}
 		}
+
 	return resultArray;
 }
 function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var resultArray = new Array();
 	var lang = "en_US";
+
 	var bizDomainModel4Lang = aa.bizDomain.getBizDomainByValue("I18N_SETTINGS", "I18N_DEFAULT_LANGUAGE");
 	if (bizDomainModel4Lang.getSuccess())
 		lang = bizDomainModel4Lang.getOutput().getDescription();
+
 	if (arguments.length > 4)
 		var itemCap = arguments[4]; // use cap ID specified in args
 	else
@@ -8910,7 +11955,9 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 	////////////////////////////////////////
 	// Check License
 	////////////////////////////////////////
+
 	var capLicenseResult = aa.licenseScript.getLicenseProf(itemCap);
+
 	if (!capLicenseResult.getSuccess()) {
 		logDebug("**WARNING: getting CAP licenses: " + capLicenseResult.getErrorMessage());
 		var licArray = new Array();
@@ -8919,6 +11966,7 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		if (!licArray)
 			licArray = new Array();
 	}
+
 	for (var thisLic in licArray)
 		if (licArray[thisLic].getLicenseProfessionalModel().getLicSeqNbr()) {
 			var licCondResult = aa.caeCondition.getCAEConditions(licArray[thisLic].getLicenseProfessionalModel().getLicSeqNbr());
@@ -8928,6 +11976,7 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 			} else {
 				var licCondArray = licCondResult.getOutput();
 			}
+
 			for (var thisLicCond in licCondArray) {
 				var thisCond = licCondArray[thisLicCond];
 				var cType = thisCond.getConditionType();
@@ -8937,6 +11986,7 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 				var cType = thisCond.getConditionType();
 				var cComment = thisCond.getConditionComment();
 				var cExpireDate = thisCond.getExpireDate();
+
 				if (cType == null)
 					cType = " ";
 				if (cStatus == null)
@@ -8945,6 +11995,7 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					cDesc = " ";
 				if (cImpact == null)
 					cImpact = " ";
+
 				if ((pType == null || pType.toUpperCase().equals(cType.toUpperCase())) && (pStatus == null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc == null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact == null || pImpact.toUpperCase().equals(cImpact.toUpperCase()))) {
 					var r = new condMatchObj;
 					r.objType = "License";
@@ -8955,23 +12006,30 @@ function getLicenseConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					r.description = cDesc;
 					r.comment = cComment;
 					r.expireDate = cExpireDate;
+
 					var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 					r.arObject = langCond;
 					r.arDescription = langCond.getResConditionDescription();
 					r.arComment = langCond.getResConditionComment();
+
 					resultArray.push(r);
 				}
 			}
 		}
+
 	return resultArray;
 }
+
 function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var resultArray = new Array();
 	var lang = "en_US";
+
 	var bizDomainModel4Lang = aa.bizDomain.getBizDomainByValue("I18N_SETTINGS", "I18N_DEFAULT_LANGUAGE");
 	if (bizDomainModel4Lang.getSuccess())
 		lang = bizDomainModel4Lang.getOutput().getDescription();
+
 	if (arguments.length > 4)
 		var itemCap = arguments[4]; // use cap ID specified in args
 	else
@@ -8980,7 +12038,9 @@ function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 	// Check Contacts
 	////////////////////////////////////////
 
+
 	var capContactResult = aa.people.getCapContactByCapID(itemCap);
+
 	if (!capContactResult.getSuccess()) {
 		logDebug("**WARNING: getting CAP contact: " + capContactResult.getErrorMessage());
 		var conArray = new Array();
@@ -8989,15 +12049,18 @@ function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 		if (!conArray)
 			conArray = new Array();
 	}
+
 	for (var thisCon in conArray)
 		if (conArray[thisCon].getCapContactModel().getRefContactNumber()) {
 			var conCondResult = aa.commonCondition.getCommonConditions("CONTACT", conArray[thisCon].getCapContactModel().getRefContactNumber());
+
 			if (!conCondResult.getSuccess()) {
 				logDebug("**WARNING: getting contact Conditions : " + licCondResult.getErrorMessage());
 				var conCondArray = new Array();
 			} else {
 				var conCondArray = conCondResult.getOutput();
 			}
+
 			for (var thisConCond in conCondArray) {
 				var thisCond = conCondArray[thisConCond];
 				var cType = thisCond.getConditionType();
@@ -9007,6 +12070,7 @@ function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 				var cType = thisCond.getConditionType();
 				var cComment = thisCond.getConditionComment();
 				var cExpireDate = thisCond.getExpireDate();
+
 				if (cType == null)
 					cType = " ";
 				if (cStatus == null)
@@ -9015,6 +12079,7 @@ function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					cDesc = " ";
 				if (cImpact == null)
 					cImpact = " ";
+
 				if ((pType == null || pType.toUpperCase().equals(cType.toUpperCase())) && (pStatus == null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc == null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact == null || pImpact.toUpperCase().equals(cImpact.toUpperCase()))) {
 					var r = new condMatchObj;
 					r.objType = "Contact";
@@ -9025,16 +12090,21 @@ function getContactConditions(pType, pStatus, pDesc, pImpact) // optional capID
 					r.description = cDesc;
 					r.comment = cComment;
 					r.expireDate = cExpireDate;
+
 					var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 					r.arObject = langCond;
 					r.arDescription = langCond.getResConditionDescription();
 					r.arComment = langCond.getResConditionComment();
+
 					resultArray.push(r);
 				}
 			}
 		}
+
 	return resultArray;
 }
+
 function getConditions(pType, pStatus, pDesc, pImpact) // optional capID
 {
 	var conditions = getCAPConditions(pType, pStatus, pDesc, pImpact);
@@ -9044,26 +12114,31 @@ function getConditions(pType, pStatus, pDesc, pImpact) // optional capID
 			conditions.push(addressConditions[i]);
 		}
 	}
+
 	var parcelConditions = getParcelConditions(pType, pStatus, pDesc, pImpact);
 	if (parcelConditions) {
 		for (var i = 0; i < parcelConditions.length; i++) {
 			conditions.push(parcelConditions[i]);
 		}
 	}
+
 	var licenseConditions = getLicenseConditions(pType, pStatus, pDesc, pImpact);
 	if (licenseConditions) {
 		for (var i = 0; i < licenseConditions.length; i++) {
 			conditions.push(licenseConditions[i]);
 		}
 	}
+
 	var contactConditons = getContactConditions(pType, pStatus, pDesc, pImpact);
 	if (contactConditons) {
 		for (var i = 0; i < contactConditons.length; i++) {
 			conditions.push(contactConditons[i]);
 		}
 	}
+
 	return conditions;
 }
+
 function condMatchObj() {
 	this.objType = null;
 	this.object = null;
@@ -9081,7 +12156,6 @@ function condMatchObj() {
 	this.arComment = null;
 	this.expireDate = null;
 } 
- 
 function getContactArray()
 	{
 	// Returns an array of associative arrays with contact attributes.  Attributes are UPPER CASE
@@ -9090,7 +12164,9 @@ function getContactArray()
 	// on ASA it should still be pulled normal way even though still partial cap
 	var thisCap = capId;
 	if (arguments.length == 1) thisCap = arguments[0];
+
 	var cArray = new Array();
+
 	if (arguments.length == 0 && !cap.isCompleteCap() && controlString != "ApplicationSubmitAfter") // we are in a page flow script so use the capModel to get contacts
 		{
 		capContactArray = cap.getContactsGroup().toArray() ;
@@ -9103,6 +12179,7 @@ function getContactArray()
 			var capContactArray = capContactResult.getOutput();
 			}
 		}
+
 	if (capContactArray)
 		{
 		for (yy in capContactArray)
@@ -9129,7 +12206,9 @@ function getContactArray()
 			aArray["country"] = capContactArray[yy].getPeople().getCompactAddress().getCountry();
 			aArray["fullName"] = capContactArray[yy].getPeople().fullName;
 			aArray["peopleModel"] = capContactArray[yy].getPeople();
+
 			var pa = new Array();
+
 			if (arguments.length == 0 && !cap.isCompleteCap()) {
 				var paR = capContactArray[yy].getPeople().getAttributes();
 				if (paR) pa = paR.toArray();
@@ -9138,83 +12217,144 @@ function getContactArray()
 				var pa = capContactArray[yy].getCapContactModel().getPeople().getAttributes().toArray();
 	                for (xx1 in pa)
                    		aArray[pa[xx1].attributeName] = pa[xx1].attributeValue;
+
         	cArray.push(aArray);
 			}
 		}
 	return cArray;
 	}
- 
+
  
  function getContactArrayBefore()
+
                 {
+
                 // Returns an array of associative arrays with contact attributes.  Attributes are UPPER CASE
+
                 // optional capid
+
                 // added check for ApplicationSubmitAfter event since the contactsgroup array is only on pageflow,
+
                 // on ASA it should still be pulled normal way even though still partial cap
+
  
+
  
+
                 var envContactList = aa.env.getValue("ContactList");
+
  
+
                 var capContactArray = envContactList.toArray();
+
  
+
                 var cArray = new Array();
+
  
+
                 if (capContactArray)
+
                                 {
+
                                 for (yy in capContactArray)
+
                                                 {
+
                                                 var aArray = new Array();
+
                                                 aArray["lastName"] = capContactArray[yy].getPeople().lastName;
+
                                                 aArray["refSeqNumber"] = capContactArray[yy].getRefContactNumber();
+
                                                 aArray["firstName"] = capContactArray[yy].getPeople().firstName;
+
                                                 aArray["middleName"] = capContactArray[yy].getPeople().middleName;
+
                                                 aArray["businessName"] = capContactArray[yy].getPeople().businessName;
+
                                                 aArray["contactSeqNumber"] =capContactArray[yy].getPeople().contactSeqNumber;
+
                                                 aArray["contactType"] =capContactArray[yy].getPeople().contactType;
+
                                                 aArray["relation"] = capContactArray[yy].getPeople().relation;
+
                                                 aArray["phone1"] = capContactArray[yy].getPeople().phone1;
+
                                                 aArray["phone2"] = capContactArray[yy].getPeople().phone2;
+
                                                 aArray["email"] = capContactArray[yy].getPeople().email;
+
                                                 aArray["addressLine1"] = capContactArray[yy].getPeople().getCompactAddress().getAddressLine1();
+
                                                 aArray["addressLine2"] = capContactArray[yy].getPeople().getCompactAddress().getAddressLine2();
+
                                                 aArray["city"] = capContactArray[yy].getPeople().getCompactAddress().getCity();
+
                                                 aArray["state"] = capContactArray[yy].getPeople().getCompactAddress().getState();
+
                                                 aArray["zip"] = capContactArray[yy].getPeople().getCompactAddress().getZip();
+
                                                 aArray["fax"] = capContactArray[yy].getPeople().fax;
+
                                                 aArray["notes"] = capContactArray[yy].getPeople().notes;
+
                                                 aArray["country"] = capContactArray[yy].getPeople().getCompactAddress().getCountry();
+
                                                 aArray["fullName"] = capContactArray[yy].getPeople().fullName;
+
  
+
  
+
                                                 var pa = capContactArray[yy].getPeople().getAttributes().toArray();
+
                                 for (xx1 in pa)
+
                                                 aArray[pa[xx1].attributeName] = pa[xx1].attributeValue;
+
                                                 cArray.push(aArray);
+
 		                                }
+
                                         }
+
                 return cArray;
+
                 }
 
- 
+
+
  
  function getContactByType(conType,capId) {
+
     var contactArray = getPeople(capId);
 
+
+
     for(thisContact in contactArray) {
+
         if((contactArray[thisContact].getPeople().contactType).toUpperCase() == conType.toUpperCase())
+
             return contactArray[thisContact].getPeople();
+
     }
 
+
+
     return false;
+
 }
 
- 
+
+
  
 function getContactObj(itemCap,typeToLoad)
 {
     // returning the first match on contact type
     var capContactArray = null;
     var cArray = new Array();
+
     if (itemCap.getClass() == "com.accela.aa.aamain.cap.CapModel")   { // page flow script 
         var capContactArray = cap.getContactsGroup().toArray() ;
         }
@@ -9238,7 +12378,6 @@ function getContactObj(itemCap,typeToLoad)
     return false;
             
 } 
- 
  function getContactObjsBySeqNbr(itemCap,seqNbr) {
 	/*var result = aa.people.getCapContactByPK(itemCap,seqNbr);
 	
@@ -9247,10 +12386,12 @@ function getContactObj(itemCap,typeToLoad)
 		return new contactObj(csm);
 	}*/
 	var capContactArray = null;
+
 	var capContactResult = aa.people.getCapContactByCapID(itemCap);
         if (capContactResult.getSuccess()) {
         var capContactArray = capContactResult.getOutput();
     }
+
     if (capContactArray) {
         for (var yy in capContactArray) {
             if (String(capContactArray[yy].getPeople().contactSeqNumber).equals(String(seqNbr))) {
@@ -9262,7 +12403,8 @@ function getContactObj(itemCap,typeToLoad)
         
 }
 
- 
+
+
  
 function getContactObjs(itemCap) // optional typeToLoad, optional return only one instead of Array?
 {
@@ -9276,6 +12418,7 @@ function getContactObjs(itemCap) // optional typeToLoad, optional return only on
         var capContactArray = envContactList.toArray();
 	}
     else if (!cap.isCompleteCap() && controlString != "ApplicationSubmitAfter") {
+
         if (cap.getApplicantModel()) {
             capContactArray[0] = cap.getApplicantModel();
         }
@@ -9292,6 +12435,7 @@ function getContactObjs(itemCap) // optional typeToLoad, optional return only on
             var capContactArray = capContactResult.getOutput();
             }
         }
+
     if (capContactArray) {
         for (var yy in capContactArray) {
             if (!typesToLoad || exists(capContactArray[yy].getPeople().contactType, typesToLoad)) {
@@ -9305,13 +12449,13 @@ function getContactObjs(itemCap) // optional typeToLoad, optional return only on
             
 }
  
- 
  function getContactObjsByCap(itemCap) // optional typeToLoad, optional return only one instead of Array?
 {
 	var typesToLoad = false;
 	if (arguments.length == 2) typesToLoad = arguments[1];
 	var capContactArray = null;
 	var cArray = new Array();
+
 	var capContactArray = cap.getContactsGroup().toArray() ;
 	
 	if (capContactArray) {
@@ -9327,47 +12471,85 @@ function getContactObjs(itemCap) // optional typeToLoad, optional return only on
 			
 }
 
- 
+
+
  
  function getContactParams4Notification(params,conType) {
+
 	// pass in a hashtable and it will add the additional parameters to the table
+
 	// pass in contact type to retrieve
+
+
 
 	contactArray = getContactArray();
 
+
+
 	for(ca in contactArray) {
+
 		thisContact = contactArray[ca];
+
+
 
 		if (thisContact["contactType"] == conType) {
 
+
+
 			conType = conType.toLowerCase();
 
+
+
 			addParameter(params, "$$" + conType + "LastName$$", thisContact["lastName"]);
+
 			addParameter(params, "$$" + conType + "FirstName$$", thisContact["firstName"]);
+
 			addParameter(params, "$$" + conType + "MiddleName$$", thisContact["middleName"]);
+
 			addParameter(params, "$$" + conType + "BusinesName$$", thisContact["businessName"]);
+
 			addParameter(params, "$$" + conType + "ContactSeqNumber$$", thisContact["contactSeqNumber"]);
+
 			addParameter(params, "$$" + conType + "$$", thisContact["contactType"]);
+
 			addParameter(params, "$$" + conType + "Relation$$", thisContact["relation"]);
+
 			addParameter(params, "$$" + conType + "Phone1$$", thisContact["phone1"]);
+
 			addParameter(params, "$$" + conType + "Phone2$$", thisContact["phone2"]);
+
 			addParameter(params, "$$" + conType + "Email$$", thisContact["email"]);
+
 			addParameter(params, "$$" + conType + "AddressLine1$$", thisContact["addressLine1"]);
+
 			addParameter(params, "$$" + conType + "AddressLine2$$", thisContact["addressLine2"]);
+
 			addParameter(params, "$$" + conType + "City$$", thisContact["city"]);
+
 			addParameter(params, "$$" + conType + "State$$", thisContact["state"]);
+
 			addParameter(params, "$$" + conType + "Zip$$", thisContact["zip"]);
+
 			addParameter(params, "$$" + conType + "Fax$$", thisContact["fax"]);
+
 			addParameter(params, "$$" + conType + "Notes$$", thisContact["notes"]);
+
 			addParameter(params, "$$" + conType + "Country$$", thisContact["country"]);
+
 			addParameter(params, "$$" + conType + "FullName$$", thisContact["fullName"]);
+
 		}
+
 	}
 
+
+
 	return params;	
+
 }
 
- 
+
+
  
 function getCSLBInfo(doPop,doWarning)   // doPop = true populate the cap lic prof with this data
 					// doWarning = true, message if license is expired.
@@ -9381,29 +12563,37 @@ function getCSLBInfo(doPop,doWarning)   // doPop = true populate the cap lic pro
 		{ var capLicenseArr = capLicenseResult.getOutput();  }
 	else
 		{ logDebug("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage()); return false; }
+
 	if (capLicenseArr == null || !capLicenseArr.length)
 		{ logDebug("**WARNING: no licensed professionals on this CAP"); return false; }
+
 	var licProfScriptModel = capLicenseArr[0];
 	var rlpId = licProfScriptModel.getLicenseNbr();
+
 	//
 	// Now make the call to the California State License Board
 	//
+
 	var getout = aa.httpClient.get("https://www2.cslb.ca.gov/IVR/License+Detail.aspx?LicNum=" + rlpId);
 	if (getout.getSuccess())
 	  var lpXML = getout.getOutput();
 	else
 	   { logDebug("**ERROR: communicating with CSLB: " + getout.getErrorMessage()); return false; }
+
 	// Check to see if error message in the XML:
+
 	if (lpXML.indexOf("<Error>") > 0 )
 		{
 		logDebug("**ERROR: CSLB information returned an error: " + getNode(getNode(lpXML,"License"),"**ERROR"))
 		return false;
 		}
+
 	var lpBiz = getNode(lpXML,"BusinessInfo");
 	var lpStatus = getNode(lpXML,"PrimaryStatus");
 	var lpClass = getNode(lpXML,"Classifications");
 	var lpBonds = getNode(lpXML,"ContractorBond");
 	var lpWC = getNode(lpXML,"WorkersComp");
+
 	if (doWarning)
 		{
 		var expDate = new Date(getNode(lpBiz,"ExpireDt"));
@@ -9413,6 +12603,7 @@ function getCSLBInfo(doPop,doWarning)   // doPop = true populate the cap lic pro
 			comment("**WARNING: Professional License expired on " + expDate.toString());
 			}
 		}
+
 	if (doPop)
 		{
 		licProfScriptModel.setAddress1(getNode(lpBiz,"Addr1").replace(/\+/g," "));
@@ -9428,22 +12619,34 @@ function getCSLBInfo(doPop,doWarning)   // doPop = true populate the cap lic pro
 		aa.m_licenseProfessional.editLicensedProfessional(licProfScriptModel);
 		}
 	}
- 
+
  
  function getDateDiff(DatetoComp) {
 
+
+
     var date1 = new Date(DatetoComp);
+
     var sysDate = aa.date.getCurrentDate();
+
     var sysDateMMDDYYYY = dateFormatted(sysDate.getMonth(), sysDate.getDayOfMonth(), sysDate.getYear(), "MM/DD/YYYY");
+
     //aa.print("sysDateMMDDYYYY:" + sysDateMMDDYYYY + "--DatetoComp:" + DatetoComp);
 
+
+
     var date2 = new Date(sysDateMMDDYYYY);
+
     var diffDays = parseInt((date2 - date1) / (1000 * 60 * 60 * 24));
+
     //aa.print("diffDays:" + diffDays);
+
     return diffDays;
+
 }
 
- 
+
+
  
 function getDepartmentName(username)
 	{
@@ -9454,24 +12657,28 @@ function getDepartmentName(username)
 	  	var m = dpt[thisdpt]
 	  	var  n = m.getServiceProviderCode() + "/" + m.getAgencyCode() + "/" + m.getBureauCode() + "/" + m.getDivisionCode() + "/" + m.getSectionCode() + "/" + m.getGroupCode() + "/" + m.getOfficeCode() 
 	  
-	  	aa.print(n);
+	  	if (n.equals(suo.deptOfUser)) 
+	  	return(m.getDeptName())
+  		}
   	}
-}
   
    
- 
 function getDocOperation(docModelList)
 {
+
 
 	var docModel = docModelList.get(0);
 	if(docModel == null)
 	{
 
+
 		return false;
 	}
+
 	
 	if(docModel.getCategoryByAction() == null || "".equals(docModel.getCategoryByAction()))
 	{
+
 
 		return "UPLOAD";
 	}
@@ -9487,18 +12694,74 @@ function getDocOperation(docModelList)
 	}
 }
  
- 
 function getDocumentList() {
 	// Returns an array of documentmodels if any
 	// returns an empty array if no documents
+
 	var docListArray = new Array();
+
 	docListResult = aa.document.getCapDocumentList(capId,currentUserID);
+
 	if (docListResult.getSuccess()) {		
 		docListArray = docListResult.getOutput();
 	}
 	return docListArray;
 } 
- 
+/*
+* Get EDMS Defualt Source
+* @returns {string} edmsSource
+*/
+function getEDMSDefualtSource(){
+    var edmsStandardChoice = "EDMS";
+    var edmsSource = "";
+    var cntItems = 0;
+
+    try{
+        var bizDomScriptResult = aa.bizDomain.getBizDomain(edmsStandardChoice);
+        if (bizDomScriptResult.getSuccess()) {
+            var bizDomScriptObj = bizDomScriptResult.getOutput();
+            if (bizDomScriptObj != null) {
+                cntItems = bizDomScriptObj.size();
+                logDebug("getEDMSDefualtSource: " + edmsStandardChoice + " size = " + cntItems);
+
+                if (cntItems > 0) {
+                    var bizDomScriptArr = bizDomScriptObj.toArray();
+
+                    if(typeof(bizDomScriptArr) != "undefined"){
+                        for (var i = 0; i < bizDomScriptArr.length; i++) {
+                            var bizDomainValue = bizDomScriptArr[i].getBizdomainValue();
+                            var bizDomainValueDesc = String(bizDomScriptArr[i].getDescription()).toUpperCase();
+                            var bizDomainAuditStatus = bizDomScriptArr[i].getAuditStatus();
+
+                            if(bizDomainAuditStatus == "A" && bizDomainValueDesc.indexOf("DEFAULT=YES") > -1){
+                                edmsSource = bizDomainValue;
+                                if(cntItems > 1){
+                                    logDebug("getEDMSDefualtSource: WARNING StandardChoice "+ edmsStandardChoice + " has more than one active item. Using first item " + edmsSource);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                }
+                else
+                {
+                    logDebug("getEDMSDefualtSource: WARNING edmsStandardChoice "+ edmsStandardChoice + " does not have items or items disabled.");
+                }
+            } else {
+                logDebug("getEDMSDefualtSource: WARNING edmsStandardChoice "+edmsStandardChoice +" is not found"  );
+            }
+        }
+        else
+        {
+            logDebug("getEDMSDefualtSource **ERROR: getting standard choice " + edmsStandardChoice + " :" + bizDomScriptResult.getErrorMessage());
+        }
+    } catch (ex) {
+        logDebug("getEDMSDefualtSource Error: " + ex + " Line: " + ex.lineNumber);
+    }   
+	return edmsSource;
+
+} 
 function getGISBufferInfo(svc,layer,numDistance)
 	{
 	// returns an array of associative arrays
@@ -9511,6 +12774,7 @@ function getGISBufferInfo(svc,layer,numDistance)
 	//   for (x2 in x[x1])
 	//      aa.print("  " + x2 + " = " + x[x1][x2])
 	//   }
+
 	var distanceType = "feet";
 	var retArray = new Array();
    	
@@ -9529,9 +12793,11 @@ function getGISBufferInfo(svc,layer,numDistance)
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ aa.print("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap
 		{
 		var bufchk = aa.gis.getBufferByRadius(fGisObj[a1], numDistance, distanceType, buf);
+
 		if (bufchk.getSuccess())
 			var proxArr = bufchk.getOutput();
 		else
@@ -9564,7 +12830,7 @@ function getGISBufferInfo(svc,layer,numDistance)
 		}
 	return retArray
 	}
- 
+
  
 function getGISInfo(svc,layer,attributename)
 	{
@@ -9591,9 +12857,11 @@ function getGISInfo(svc,layer,attributename)
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ logDebug("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap.  We'll only send the last value
 		{
 		var bufchk = aa.gis.getBufferByRadius(fGisObj[a1], "0", distanceType, buf);
+
 		if (bufchk.getSuccess())
 			var proxArr = bufchk.getOutput();
 		else
@@ -9612,7 +12880,7 @@ function getGISInfo(svc,layer,attributename)
 		}
 	return retString
 	}
- 
+
  
 function getGISInfoArray(svc,layer,attributename)
 {
@@ -9639,9 +12907,11 @@ function getGISInfoArray(svc,layer,attributename)
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ logDebug("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap.  We'll only send the last value
 	{
 		var bufchk = aa.gis.getBufferByRadius(fGisObj[a1], "0", distanceType, buf);
+
 		if (bufchk.getSuccess())
 			var proxArr = bufchk.getOutput();
 		else
@@ -9665,27 +12935,34 @@ function getGISInfoArray(svc,layer,attributename)
 	}
 	return retArray;
 }
+
  
- 
+
 function getGuideSheetObjects(inspId) {
 	//
 	// Returns an array of guide sheet objects
 	// Optional second parameter, cap ID to load from
 	// requires guideSheetObject definition
 	//
+
 	var retArray = new Array()
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var r = aa.inspection.getInspections(itemCap);  // have to use this method to get guidesheet data
+
 	if (r.getSuccess())
 	 	{
 		var inspArray = r.getOutput();
+
 		for (i in inspArray)
 			{
 			if (inspArray[i].getIdNumber() == inspId)
 				{
 				var inspModel = inspArray[i].getInspection();
+
 				var gs = inspModel.getGuideSheets()
+
 				if (gs)
 					{
 					gsArray = gs.toArray();
@@ -9706,10 +12983,10 @@ function getGuideSheetObjects(inspId) {
 				} // if this is the right inspection
 			} // for each inspection
 		} // if there are inspections
+
 	logDebug("loaded " + retArray.length + " guidesheet items");
 	return retArray;
 	}
- 
  
 /**
 * Add Inspection Result Sumbit After Parameters for use in Notification Templates. 
@@ -9718,19 +12995,26 @@ function getGuideSheetObjects(inspId) {
 * @param params {HashMap}
 * @return {HashMap}
 */
+
 function getInspectionResultParams4Notification(params) {
+
 	if (inspId) addParameter(params, "$$inspId$$", inspId);
+
 	if (inspResult) addParameter(params, "$$inspResult$$", inspResult);
+
 	if (inspComment) addParameter(params, "$$inspComment$$", inspComment);
+
 	if (inspResultDate) addParameter(params, "$$inspResultDate$$", inspResultDate);
+
 	if (inspGroup) addParameter(params, "$$inspGroup$$", inspGroup);
 	
 	if (inspType) addParameter(params, "$$inspType$$", inspType);
 	
 	if (inspSchedDate) addParameter(params, "$$inspSchedDate$$", inspSchedDate);
+
 	return params;
+
 } 
- 
 /**
 * Add Inspection Schedule After Parameters for use in Notification Templates. 
 * This should be called from InspectionScheduleAfter Event
@@ -9738,20 +13022,29 @@ function getInspectionResultParams4Notification(params) {
 * @param params {HashMap}
 * @return {HashMap}
 */
+
 function getInspectionScheduleParams4Notification(params) {
+
 	if (inspId) addParameter(params, "$$inspId$$", inspId);
+
 	if (inspInspector) addParameter(params, "$$inspInspector$$", inspInspector);
+
 	if (InspectorFirstName) addParameter(params, "$$InspectorFirstName$$", InspectorFirstName);
+
 	if (InspectorMiddleName) addParameter(params, "$$InspectorMiddleName$$", InspectorMiddleName);
+
 	if (InspectorLastName) addParameter(params, "$$InspectorLastName$$", InspectorLastName);
+
 	if (inspGroup) addParameter(params, "$$inspGroup$$", inspGroup);
 	
 	if (inspType) addParameter(params, "$$inspType$$", inspType);
 	
 	if (inspSchedDate) addParameter(params, "$$inspSchedDate$$", inspSchedDate);
+
 	return params;
+
 }
- 
+
  
 // function getInspector: returns the inspector ID (string) of the scheduled inspection.  Returns the first result
 //
@@ -9771,7 +13064,7 @@ function getInspector(insp2Check)
 		}
 	return false;
 	}
- 
+
  
 function getLastInspector(insp2Check)
 	// function getLastInspector: returns the inspector ID (string) of the last inspector to result the inspection.
@@ -9793,6 +13086,7 @@ function getLastInspector(insp2Check)
 		}
 	return null;
 	}
+
 	function compareInspDateDesc(a, b) {
 		if (a.getScheduledDate() == null) {
 			return 1;
@@ -9802,7 +13096,6 @@ function getLastInspector(insp2Check)
 		}
 		return b.getScheduledDate().getEpochMilliseconds() - a.getScheduledDate().getEpochMilliseconds();
 	} 
- 
 function getLastScheduledInspector(insp2Check)
 	// function getLastInspector: returns the inspector ID (string) of the last inspector that is assigned to the inspection.
 	//
@@ -9811,6 +13104,7 @@ function getLastScheduledInspector(insp2Check)
 	if (inspResultObj.getSuccess())
 		{
 		inspList = inspResultObj.getOutput();
+
 		inspList.sort(compareInspDateDesc)
 		for (xx in inspList)
 			if (String(insp2Check).equals(inspList[xx].getInspectionType()) && inspList[xx].getInspectionStatus().equals("Scheduled"))
@@ -9822,7 +13116,7 @@ function getLastScheduledInspector(insp2Check)
 		}
 	return null;
 	}
- 
+
  
 /**
  * Builds an array of licenseProfObjects from a transaction record
@@ -9835,6 +13129,7 @@ function getLastScheduledInspector(insp2Check)
  *		Array of licenseProfObjects
  *
  */
+
 function getLicensedProfessionalObjectsByRecord(pCapId,licenseTypeArray){
 	var itemCap = capId;
 	if (pCapId != null){
@@ -9859,7 +13154,6 @@ function getLicensedProfessionalObjectsByRecord(pCapId,licenseTypeArray){
 	
 	return licenseProfObjArray;
 } 
- 
 function getLicenseProfessional(itemcapId)
 {
 	capLicenseArr = null;
@@ -9881,7 +13175,6 @@ function getLicenseProfessional(itemcapId)
 	return capLicenseArr;
 }
  
- 
 function getNextSequence(maskName) {
 	var agencySeqBiz = aa.proxyInvoker.newInstance("com.accela.sg.AgencySeqNextBusiness").getOutput();
 	var params = aa.proxyInvoker.newInstance("com.accela.domain.AgencyMaskDefCriteria").getOutput();
@@ -9889,30 +13182,34 @@ function getNextSequence(maskName) {
 	params.setMaskName(maskName);
 	params.setRecStatus("A");
 	params.setSeqType("Agency");
+
 	var seq = agencySeqBiz.getNextMaskedSeq("ADMIN", params, null, null);
+
 	return seq;
 }
- 
  
 function getNode(fString,fName)
 	{
 	 var fValue = "";
 	 var startTag = "<"+fName+">";
 	 var endTag = "</"+fName+">";
+
 	 startPos = fString.indexOf(startTag) + startTag.length;
 	 endPos = fString.indexOf(endTag);
 	 // make sure startPos and endPos are valid before using them
 	 if (startPos > 0 && startPos < endPos)
 		  fValue = fString.substring(startPos,endPos);
+
 	 return unescape(fValue);
 	}
 	
  
- 
+
 function GetOwnersByParcel()
 {
 //get parcel(s) by capid
 var parcels = aa.parcel.getParcelDailyByCapID(capId,null);
+
 if(parcels.getSuccess())
 {
 	 parcels = parcels.getOutput();
@@ -9946,9 +13243,9 @@ if(parcels.getSuccess())
 				}
 	    }
 	 }
+
 } 
 } 
- 
 function getParcelConditions(pType,pStatus,pDesc,pImpact) // optional capID
 {
 	var resultArray = new Array();
@@ -10002,6 +13299,7 @@ function getParcelConditions(pType,pStatus,pDesc,pImpact) // optional capID
 				var cType = thisCond.getConditionType();
 				var cComment = thisCond.getConditionComment();
 				var cExpireDate = thisCond.getExpireDate();
+
 				if (cType == null)
 					cType = " ";
 				if (cStatus==null)
@@ -10010,6 +13308,7 @@ function getParcelConditions(pType,pStatus,pDesc,pImpact) // optional capID
 					cDesc = " ";
 				if (cImpact==null)
 					cImpact = " ";
+
 				if ( (pType==null || pType.toUpperCase().equals(cType.toUpperCase())) && (pStatus==null || pStatus.toUpperCase().equals(cStatus.toUpperCase())) && (pDesc==null || pDesc.toUpperCase().equals(cDesc.toUpperCase())) && (pImpact==null || pImpact.toUpperCase().equals(cImpact.toUpperCase())))
 					{
 					var r = new condMatchObj;
@@ -10021,7 +13320,9 @@ function getParcelConditions(pType,pStatus,pDesc,pImpact) // optional capID
 					r.description = cDesc;
 					r.comment = cComment;
 					r.expireDate = cExpireDate;
+
 					var langCond = aa.condition.getCondition(thisCond, lang).getOutput();
+
 					r.arObject = langCond;
 					r.arDescription = langCond.getResConditionDescription();
 					r.arComment = langCond.getResConditionComment();
@@ -10030,9 +13331,9 @@ function getParcelConditions(pType,pStatus,pDesc,pImpact) // optional capID
 					}
 				}
 			}
+
 	return resultArray;
 }
- 
  
 function getParent() 
 	{
@@ -10056,7 +13357,7 @@ function getParent()
 		return false;
 		}
 	}
- 
+
  
 function getParentByCapId(itemCap) 
 	{
@@ -10080,17 +13381,24 @@ function getParentByCapId(itemCap)
 		return false;
 		}
 	} 
- 
  function getParentCapID4Renewal() {
+
     parentLic = getParentLicenseCapID(capId); 
+
     pLicArray = String(parentLic).split("-"); 
+
     var parentLicenseCAPID = aa.cap.getCapID(pLicArray[0],pLicArray[1],pLicArray[2]).getOutput();
 
+
+
     return parentLicenseCAPID;
+
 }
 
+
+
  
- 
+
 function getParentLicenseCapID(itemCap)
 {
 	if (itemCap == null || aa.util.instanceOfString(itemCap))
@@ -10110,6 +13418,7 @@ function getParentLicenseCapID(itemCap)
 			return licenseProject.getProjectID();
 			}
 		}
+
 	var result = aa.cap.getProjectByChildCapID(itemCap, "EST", null);
     	if(result.getSuccess())
 	{
@@ -10122,28 +13431,34 @@ function getParentLicenseCapID(itemCap)
 		}
 	}
 	
+
 	logDebug("**WARNING: Could not find parent license Cap for child CAP(" + itemCap + "): ");
 		  return false;
 		  
 	
 }
- 
+
  
 function getParents(pAppType) {
 	// returns the capId array of all parent caps
 	//Dependency: appMatch function
 	//
+
 	var i = 1;
 	while (true) {
 		if (!(aa.cap.getProjectParents(capId, i).getSuccess()))
 			break;
+
 		i += 1;
 	}
 	i -= 1;
+
 	getCapResult = aa.cap.getProjectParents(capId, i);
 	myArray = new Array();
+
 	if (getCapResult.getSuccess()) {
 		parentArray = getCapResult.getOutput();
+
 		if (parentArray.length) {
 			for (x in parentArray) {
 				if (pAppType != null) {
@@ -10153,6 +13468,7 @@ function getParents(pAppType) {
 				} else
 					myArray.push(parentArray[x].getCapID());
 			}
+
 			return myArray;
 		} else {
 			logDebug("**WARNING: GetParent found no project parent for this application");
@@ -10163,114 +13479,209 @@ function getParents(pAppType) {
 		return null;
 	}
 } 
- 
  function getPartialCapID(capid)
+
 {
+
     if (capid == null || aa.util.instanceOfString(capid))
+
     {
+
         return null;
+
     }
+
     //1. Get original partial CAPID  from related CAP table.
+
     var result = aa.cap.getProjectByChildCapID(capid, "EST", null);
+
     if(result.getSuccess())
+
     {
+
         projectScriptModels = result.getOutput();
+
         if (projectScriptModels == null || projectScriptModels.length == 0)
+
         {
+
             aa.print("ERROR: Failed to get partial CAP with CAPID(" + capid + ")");
+
             return null;
+
         }
+
         //2. Get original partial CAP ID from project Model
+
         projectScriptModel = projectScriptModels[0];
+
         return projectScriptModel.getProjectID();
+
     }  
+
     else 
+
     {
+
         aa.print("ERROR: Failed to get partial CAP by child CAP(" + capid + "): " + result.getErrorMessage());
+
         return null;
+
     }
+
 }
 
- 
+
+
  
  function getPeople(capId)
+
 {
+
 	capPeopleArr = null;
+
 	var s_result = aa.people.getCapContactByCapID(capId);
+
 	if(s_result.getSuccess())
+
 	{
+
 		capPeopleArr = s_result.getOutput();
+
 		if(capPeopleArr != null || capPeopleArr.length > 0)
+
 		{
+
 			for (loopk in capPeopleArr)	
+
 			{
+
 				var capContactScriptModel = capPeopleArr[loopk];
+
 				var capContactModel = capContactScriptModel.getCapContactModel();
+
 				var peopleModel = capContactScriptModel.getPeople();
+
 				var contactAddressrs = aa.address.getContactAddressListByCapContact(capContactModel);
+
 				if (contactAddressrs.getSuccess())
+
 				{
+
 					var contactAddressModelArr = convertContactAddressModelArr(contactAddressrs.getOutput());
+
 					peopleModel.setContactAddressList(contactAddressModelArr);    
+
 				}
+
 			}
+
 		}
+
 		
+
 		else
+
 		{
+
 			aa.print("WARNING: no People on this CAP:" + capId);
+
 			capPeopleArr = null;
+
 		}
+
 	}
+
 	else
+
 	{
+
 		aa.print("ERROR: Failed to People: " + s_result.getErrorMessage());
+
 		capPeopleArr = null;	
+
 	}
+
 	return capPeopleArr;
+
 }
 
- 
+
+
  
  function getPrimaryAddressLineParam4Notification(params) {
+
 	// pass in a hashtable and it will add the additional parameters to the table
+
+
 
     var addressLine = "";
 
+
+
 	adResult = aa.address.getPrimaryAddressByCapID(capId,"Y");
 
+
+
 	if (adResult.getSuccess()) {
+
 		ad = adResult.getOutput().getAddressModel();
 
+
+
 		addParameter(params, "$$addressLine$$", ad.getDisplayAddress());
+
 	}
 
+
+
 	return params;
+
 }
 
- 
+
+
  
  function getPrimaryOwnerParams4Notification(params) {
+
 	// pass in a hashtable and it will add the additional parameters to the table
+
+
 
 	capOwnerResult = aa.owner.getOwnerByCapId(capId);
 
+
+
 	if (capOwnerResult.getSuccess()) {
+
 		owner = capOwnerResult.getOutput();
 
+
+
 		for (o in owner) {
+
 			thisOwner = owner[o];
+
 			if (thisOwner.getPrimaryOwner() == "Y") {
+
 				addParameter(params, "$$ownerFullName$$", thisOwner.getOwnerFullName());
+
 				addParameter(params, "$$ownerPhone$$", thisOwner.getPhone);
+
 				break;	
+
 			}
+
 		}
+
 	}
+
 	return params;
+
 }
 
- 
+
+
  
 function getProp(fString,fName)
 	{
@@ -10280,16 +13691,20 @@ function getProp(fString,fName)
 	 startPos = fString.indexOf(startTag) + startTag.length;
 	 if (startPos > 0)
 	   fValue = fString.substring(startPos);
+
 	 endPos = fValue.indexOf(endTag);
 	 if (endPos > 0)
 	  fValue = fValue.substring(0,endPos);
+
 	return unescape(fValue);
 	}
- 
+
  
 function getRecordParams4Notification(params) {
+
 	itemCapId = (arguments.length == 2) ? arguments[1] : capId;
 	// pass in a hashtable and it will add the additional parameters to the table
+
 	var itemCapIDString = itemCapId.getCustomID();
 	var itemCap = aa.cap.getCap(itemCapId).getOutput();
 	var itemCapName = itemCap.getSpecialText();
@@ -10310,24 +13725,33 @@ function getRecordParams4Notification(params) {
 	}
 	
 	var workDesc = workDescGet(itemCapId);
+
 	addParameter(params, "$$altID$$", itemCapIDString);
+
 	addParameter(params, "$$capName$$", itemCapName);
 	
 	addParameter(params, "$$recordTypeAlias$$", itemCapTypeAlias);
+
 	addParameter(params, "$$capStatus$$", itemCapStatus);
+
 	addParameter(params, "$$fileDate$$", itemFileDate);
+
 	addParameter(params, "$$balanceDue$$", "$" + parseFloat(itemBalanceDue).toFixed(2));
 	
 	addParameter(params, "$$workDesc$$", (workDesc) ? workDesc : "");
+
 	return params;
+
 }
 
- 
+
+
  
 /**
 Title : getRefAddressId
 Purpose : Look up a Reference Address ID. For use with addParcelAndOwnerFromRefAddress()
 Script Type : EMSE, Pageflow, Batch
+
 @param {capId} {capIDModel}
 @return {RefAddId}
  */
@@ -10354,7 +13778,6 @@ function getRefAddressId()
 		}
 	}
 } 
- 
 /**
 Title : getRefLicenseProf
 Purpose : Look up a Reference License Professional
@@ -10362,6 +13785,7 @@ Functional Area : Licensing
 Description : Look up a Reference License Professional by the License Number and Optional License Type
 Script Type : EMSE, Pageflow, Batch
 Call Example: getRefLicenseProf("RN17-00058","Nurse Practitioner");
+
 @param refstlic {String}
 @param [licenseType] {String}
 @return {refLicObj}
@@ -10385,10 +13809,12 @@ function getRefLicenseProf(refstlic,licenseType)
 			else if (refstlic && newLicArray[thisLic] && refstlic.toUpperCase().equals(newLicArray[thisLic].getStateLicense().toUpperCase()))
 				refLicObj = newLicArray[thisLic];
 		}
+
 	return refLicObj;
 	}
+
  
- 
+
 function getRelatedCapsByAddress(ats) 
 //
 // returns and array of capids that share the same address as the current cap
@@ -10413,17 +13839,22 @@ function getRelatedCapsByAddress(ats)
 		else
 			{ logDebug("**ERROR: getting similar addresses: " + capAddResult.getErrorMessage());  return false; }
 
+
 		// loop through related caps
 		for (cappy in capIdArray)
 			{
 			// skip if current cap
 			if (capId.getCustomID().equals(capIdArray[cappy].getCustomID()))
 				continue;
+
 			// get cap id
 			var relcap = aa.cap.getCap(capIdArray[cappy].getCapID()).getOutput();
 
+
 			// get cap type
+
 			var reltypeArray = relcap.getCapType().toString().split("/");
+
 			var isMatch = true;
 			var ata = ats.split("/");
 			if (ata.length != 4)
@@ -10432,8 +13863,10 @@ function getRelatedCapsByAddress(ats)
 				for (xx in ata)
 					if (!ata[xx].equals(reltypeArray[xx]) && !ata[xx].equals("*"))
 						isMatch = false;
+
 			if (isMatch)			
 				retArr.push(capIdArray[cappy]);
+
 			} // loop through related caps
 		
 		}
@@ -10441,8 +13874,9 @@ function getRelatedCapsByAddress(ats)
 		return retArr;
 		
 	}
+
  
- 
+
 function getRelatedCapsByParcel(ats) 
 //
 // returns and array of capids that match parcels on the current app.  Includes all parcels.
@@ -10456,15 +13890,18 @@ function getRelatedCapsByParcel(ats)
 		{ var Parcels = capParcelResult.getOutput().toArray(); }
 	else	
 		{ logDebug("**ERROR: getting parcels by cap ID: " + capParcelResult.getErrorMessage()); return false; }
+
 	for (zz in Parcels)
 		{
 		var ParcelValidatedNumber = Parcels[zz].getParcelNumber();
+
 		// get caps with same parcel
 		var capAddResult = aa.cap.getCapListByParcelID(ParcelValidatedNumber,null);
 		if (capAddResult.getSuccess())
 			{ var capIdArray=capAddResult.getOutput(); }
 		else
 			{ logDebug("**ERROR: getting similar parcels: " + capAddResult.getErrorMessage());  return false; }
+
 		// loop through related caps
 		for (cappy in capIdArray)
 			{
@@ -10476,6 +13913,7 @@ function getRelatedCapsByParcel(ats)
 			var relcap = aa.cap.getCap(capIdArray[cappy].getCapID()).getOutput();
 			// get cap type
 			var reltypeArray = relcap.getCapType().toString().split("/");
+
 			var isMatch = true;
 			var ata = ats.split("/");
 			if (ata.length != 4)
@@ -10484,8 +13922,10 @@ function getRelatedCapsByParcel(ats)
 				for (xx in ata)
 					if (!ata[xx].equals(reltypeArray[xx]) && !ata[xx].equals("*"))
 						isMatch = false;
+
 			if (isMatch)			
 				retArr.push(capIdArray[cappy]);
+
 			} // loop through related caps
 		}
 		
@@ -10493,56 +13933,87 @@ function getRelatedCapsByParcel(ats)
 		return retArr;
 		
 	}
- 
- 
- function getRenewalCapByParentCapIDForReview(parentCapid)
-{
-    if (parentCapid == null || aa.util.instanceOfString(parentCapid))
-    {
-        return null;
-    }
-    //1. Get parent license for review
-    var result = aa.cap.getProjectByMasterID(parentCapid, "Renewal", "Review");
-    if(result.getSuccess())
-    {
-        projectScriptModels = result.getOutput();
-        if (projectScriptModels == null || projectScriptModels.length == 0)
-        {
-            aa.print("ERROR: Failed to get renewal CAP by parent CAPID(" + parentCapid + ") for review");
-            return null;
-        }
-        //2. return parent CAPID.
-        projectScriptModel = projectScriptModels[0];
-        return projectScriptModel;
-    }  
-    else 
-    {
-      aa.print("ERROR: Failed to get renewal CAP by parent CAP(" + parentCapid + ") for review: " + result.getErrorMessage());
-      return null;
-    }
-}
 
  
+ function getRenewalCapByParentCapIDForReview(parentCapid)
+
+{
+
+    if (parentCapid == null || aa.util.instanceOfString(parentCapid))
+
+    {
+
+        return null;
+
+    }
+
+    //1. Get parent license for review
+
+    var result = aa.cap.getProjectByMasterID(parentCapid, "Renewal", "Review");
+
+    if(result.getSuccess())
+
+    {
+
+        projectScriptModels = result.getOutput();
+
+        if (projectScriptModels == null || projectScriptModels.length == 0)
+
+        {
+
+            aa.print("ERROR: Failed to get renewal CAP by parent CAPID(" + parentCapid + ") for review");
+
+            return null;
+
+        }
+
+        //2. return parent CAPID.
+
+        projectScriptModel = projectScriptModels[0];
+
+        return projectScriptModel;
+
+    }  
+
+    else 
+
+    {
+
+      aa.print("ERROR: Failed to get renewal CAP by parent CAP(" + parentCapid + ") for review: " + result.getErrorMessage());
+
+      return null;
+
+    }
+
+}
+
+
+
  
 function getReportedChannel() // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 0)
 		itemCap = arguments[0]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	var sReturn = cd.getReportedChannel();
+
 	if(sReturn != null)
 		return sReturn;
 	else
 		return "";
 }
- 
  
  function getRootNode(nodeId, depth)
 {
@@ -10573,34 +14044,58 @@ function getReportedChannel() // option CapId
 		}
     }
 	return currentNode;
+
 }
 
- 
+
+
  
  function getRoots(nodeId)
+
 {
+
 	var rootsArray = new Array();
+
 	var directParentsResult = aa.cap.getProjectByChildCapID(nodeId,'R',null);
+
 	
+
     if (directParentsResult.getSuccess())
+
     {
+
 		tmpdirectParents = directParentsResult.getOutput();
+
 		for(ff in tmpdirectParents) {
+
 			if (tmpdirectParents[ff]) {
+
 				
+
 				var tmpNode = getRootNode(tmpdirectParents[ff].getProjectID(), 1);
+
 				var id1 = tmpNode.getID1();
+
 				var id2 = tmpNode.getID2();
+
 				var id3 = tmpNode.getID3();
+
 				var pCapId = aa.cap.getCapID(id1,id2,id3).getOutput();
+
 				rootsArray.push(pCapId);
+
 			}
+
 		}
+
     }
+
 	return rootsArray;
+
 }
 
- 
+
+
  
 function getScheduledInspId(insp2Check)
 	{
@@ -10615,7 +14110,7 @@ function getScheduledInspId(insp2Check)
 		}
 	return false;
 	}
- 
+
  
 //
 // Get the standard choices domain for this application type
@@ -10646,7 +14141,7 @@ function getScriptAction(strControl)
 	
 	return actArray;
 	}
- 
+
  
 //
 // Get the standard choices domain for this application type
@@ -10661,11 +14156,13 @@ function getScriptAction_v1_6(strControl)
 	{
 	var actArray = new Array();
 	var maxLength = String("" + maxEntries).length;
+
 	for (var count=1; count <= maxEntries; count++)  // Must be sequential from 01 up to maxEntries
 		{
 		var countstr = "000000" + count;
 		countstr = String(countstr).substring(countstr.length,countstr.length - maxLength);
 		var bizDomScriptResult = aa.bizDomain.getBizDomainByValue(strControl,countstr);
+
 	   	if (bizDomScriptResult.getSuccess())
 	   		{
 			bizDomScriptObj = bizDomScriptResult.getOutput();
@@ -10681,7 +14178,7 @@ function getScriptAction_v1_6(strControl)
 		}
 	return actArray;
 	}
- 
+
  
 function getScriptText(vScriptName, servProvCode, useProductScripts) {
 	if (!servProvCode)  servProvCode = aa.getServiceProviderCode();
@@ -10699,26 +14196,30 @@ function getScriptText(vScriptName, servProvCode, useProductScripts) {
 	}
 }
  
- 
 function getShortNotes() // option CapId
 {
 	var itemCap = capId
 	if (arguments.length > 0)
 		itemCap = arguments[0]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	var sReturn = cd.getShortNotes();
+
 	if(sReturn != null)
 		return sReturn;
 	else
 		return "";
 }
- 
  
 function getTaskDueDate(wfstr) // optional process name.
 {
@@ -10728,6 +14229,7 @@ function getTaskDueDate(wfstr) // optional process name.
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
 	var taskDesc = wfstr;
 	if (wfstr == "*") {
 		taskDesc = "";
@@ -10739,6 +14241,7 @@ function getTaskDueDate(wfstr) // optional process name.
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if ((fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) || wfstr == "*") && (!useProcess || fTask.getProcessCode().equals(processName))) {
@@ -10748,7 +14251,6 @@ function getTaskDueDate(wfstr) // optional process name.
 		}
 	}
 } 
- 
 function getTaskStatusForEmail(stask) {
 	// returns a string of task statuses for a workflow group
 	var returnStr = ""
@@ -10759,6 +14261,7 @@ function getTaskStatusForEmail(stask) {
 		logDebug("**ERROR: getting tasks : " + taskResult.getErrorMessage());
 		return false
 	}
+
 	for (xx in taskArr)
 		if (taskArr[xx].getProcessCode().equals(stask) && taskArr[xx].getCompleteFlag().equals("Y")) {
 			returnStr += "Task Name: " + taskArr[xx].getTaskDescription() + "\n";
@@ -10770,62 +14273,90 @@ function getTaskStatusForEmail(stask) {
 	logDebug(returnStr);
 	return returnStr;
 } 
- 
  function getURLToNewRecord(ACAURL,servProvCode,group,typetype,subtype,category) {
 
+
+
     var smb = aa.proxyInvoker.newInstance("com.accela.aa.aamain.servicemanagement.ServiceManagementBusiness").getOutput();
+
     var sm = aa.proxyInvoker.newInstance("com.accela.aa.aamain.servicemanagement.ServiceModel").getOutput();
+
     var ctm = aa.cap.getCapTypeModel().getOutput();
+
     
+
     ctm.setGroup(group);
+
     ctm.setType(typetype); 
+
     ctm.setSubType(subtype);
+
     ctm.setCategory(category);
+
     sm.setCapType(ctm);
+
     sm.setServPorvCode(servProvCode);
+
     var svcs = smb.getServices(sm).toArray();
+
     
+
     // returning first service found 
+
     
+
     for (var i in svcs) {
+
         return ACAURL + "/AgencyRedirect.aspx?agency=" + servProvCode + "&name=" + escape(svcs[i].getServiceName());
+
     }
+
     // or nothing
+
     
+
     return false;
+
 }
- 
  
 function getUserEmail() {
     //optional parameter for userid
     var userId = currentUserID;
     if (arguments.length > 0)
         userId = arguments[0];
+
     var systemUserObjResult = aa.person.getUser(userId.toUpperCase());
+
     if (systemUserObjResult.getSuccess()) {
         var systemUserObj = systemUserObjResult.getOutput();
+
         var userEmail = systemUserObj.getEmail();
+
         if (userEmail)
             return userEmail;
         else
             return false; 
+
     } else {
         aa.print(systemUserObjResult.getErrorMessage());
         return false;
     }
 }
  
- 
 function getUserFullName() {
     //optional parameter for userid
     var userId = currentUserID;
     if (arguments.length > 0)
         userId = arguments[0];
+
     var systemUserObjResult = aa.person.getUser(userId.toUpperCase());
+
     if (systemUserObjResult.getSuccess()) {
         var systemUserObj = systemUserObjResult.getOutput();
+
         var userEmail = systemUserObj.getEmail();
         var userFullName = "";
+
         if (!matches(systemUserObj.getFirstName(),null,undefined,"")) userFullName = systemUserObj.getFirstName();
         if (!matches(systemUserObj.getLastName(),null,undefined,"")) userFullName += " " + systemUserObj.getLastName();
         
@@ -10833,12 +14364,12 @@ function getUserFullName() {
             return userFullName;
         else
             return false; 
+
     } else {
         logDebug(systemUserObjResult.getErrorMessage());
         return false;
     }
 }
- 
  
 /**
  * getUserObjs
@@ -10868,7 +14399,6 @@ function getUserObjs(){
 	return userObjArray;
 	
 } 
- 
 /**
  * getUserObjsByDiscipline
  * Description: Returns an array of userObj objects for all users in the system that match userDiscipline
@@ -10898,7 +14428,6 @@ function getUserObjsByDiscipline(userDiscipline){
 	
 	return userObjArray;
 } 
- 
 /**
  * getUserObjsByDisciplineAndDistrict
  * Description: Returns an array of userObj objects for all users in the system that match userDiscipline and districtName
@@ -10934,7 +14463,6 @@ function getUserObjsByDisciplineAndDistrict(userDiscipline, districtName){
 	return userObjArray;
 	
 } 
- 
 /**
  * getUserObjsByDistrict
  * Description: Returns an array of userObj objects for all users in the system that match districtName
@@ -10969,7 +14497,6 @@ function getUserObjsByDistrict(districtName){
 	return userObjArray;
 	
 } 
- 
 /**
 * Add Workflow Task Update After Parameters for use in Notification Templates. 
 * This should be called from WorkflowTaskUpdateAfter Event
@@ -10977,20 +14504,28 @@ function getUserObjsByDistrict(districtName){
 * @param params {HashMap}
 * @return {HashMap}
 */
+
 function getWorkflowParams4Notification(params) {
+
 	// pass in a hashtable and it will add the additional parameters to the table
 	// This should be called from WorkflowTaskUpdateAfter Event
+
 	if (wfTask) addParameter(params, "$$wfTask$$", wfTask);
+
 	if (wfStatus) addParameter(params, "$$wfStatus$$", wfStatus);
+
 	if (wfDate) addParameter(params, "$$wfDate$$", wfDate);
+
 	if (wfComment) addParameter(params, "$$wfComment$$", wfComment);
 	
 	if (wfStaffUserID) addParameter(params, "$$wfStaffUserID$$", wfStaffUserID);
 	
 	if (wfHours) addParameter(params, "$$wfHours$$", wfHours);
+
 	return params;
+
 } 
- 
+
 function guideSheetObject(gguidesheetModel,gguidesheetItemModel)
 	{
 	this.gsType = gguidesheetModel.getGuideType();
@@ -11007,6 +14542,7 @@ function guideSheetObject(gguidesheetModel,gguidesheetItemModel)
 	this.infoTables = new Array();
 	this.validTables = false;				//true if has ASIT info
 	this.validInfo = false;				//true if has ASI info
+
 	
 	this.loadInfo = function() {
 		var itemASISubGroupList = this.item.getItemASISubgroupList();
@@ -11031,9 +14567,11 @@ function guideSheetObject(gguidesheetModel,gguidesheetItemModel)
 			}
 		}
 		
+
 	}
 	
 	this.loadInfoTables = function() {
+
 		var guideItemASITs = this.item.getItemASITableSubgroupList();
 		if (guideItemASITs!=null)
 		for(var j = 0; j < guideItemASITs.size(); j++)
@@ -11060,16 +14598,15 @@ function guideSheetObject(gguidesheetModel,gguidesheetItemModel)
 		}
 	}
 } 
- 
 function handleError(err,context) {
 	var rollBack = true;
 	var showError = true;
+
 	if (showError) showDebug = true;
 	logDebug((rollBack ? "**ERROR** " : "ERROR: ") + err.message + " In " + context + " Line " + err.lineNumber);
     logDebug("Stack: " + err.stack);
 	}
 	 
- 
 //check if target CAP has primary address
 function hasPrimaryAddressInCap(capID) {
 	var isPrimaryAddressExist = false;
@@ -11082,22 +14619,28 @@ function hasPrimaryAddressInCap(capID) {
 				logDebug("Target CAP has primary address");
 				break;
 			}
+
 		}
 	} else {
 		logMessage("**ERROR: Failed to get addresses: " + capAddressResult.getErrorMessage());
 	}
 	return isPrimaryAddressExist;
 } 
- 
+
 function xmlEscapeXMLToHTML(xmlData) {
     /*************************************************************************************
     Function:       xmlEscapeXMLToHTML
+
     author:         xwisdom@yahoo.com
+
     description:
         Encodes XML data for use in a web page
+
     ************************************************************************************/
     var gt;
+
     var str = xmlData;
+
     //replace & with &
     gt = -1;
     while (str.indexOf("&", gt + 1) > -1) {
@@ -11107,6 +14650,7 @@ function xmlEscapeXMLToHTML(xmlData) {
         newStr = newStr + str.substr(gt + 1, str.length);
         str = newStr;
     }
+
     //replace < with <
     gt = -1;
     while (str.indexOf("<", gt + 1) > -1) {
@@ -11116,6 +14660,7 @@ function xmlEscapeXMLToHTML(xmlData) {
         newStr = newStr + str.substr(gt + 1, str.length);
         str = newStr;
     }
+
     //replace > with >
     gt = -1;
     while (str.indexOf(">", gt + 1) > -1) {
@@ -11125,6 +14670,7 @@ function xmlEscapeXMLToHTML(xmlData) {
         newStr = newStr + str.substr(gt + 1, str.length);
         str = newStr;
     }
+
     //replace \n with <br>
     gt = -1;
     while (str.indexOf("\n", gt + 1) > -1) {
@@ -11134,141 +14680,213 @@ function xmlEscapeXMLToHTML(xmlData) {
         newStr = newStr + str.substr(gt + 1, str.length);
         str = newStr;
     }
+
     return str
+
 }  // end function xmlEscapeXMLToHTML
+
  
- 
+//@ts-check
+/**
+ * Uses function 'getScriptText' to fetch EMSE Script source code using the supplied script name.
+ * The returned script text is emmediately evalueated in the current context.
+ * @param {stinrg} s Script Code of EMSE Script to be included
+ * @returns {boolean} TRUE if successful match on Script Code | FALSE in other cases
+ */
 function include(s) {
 	try {
-	    var thisDate = new Date(aa.util.now());
+		var inclStartTime = null;
+		var thisDate = new Date(aa.util.now());
 		var thisTime = thisDate.getTime();
+		if (typeof startTime === typeof undefined) {
+			inclStartTime = thisTime;
+		} else {
+			inclStartTime = startTime;
+		}
 		var st = getScriptText(s);
 		if (st.length) {
-			logDebug("Executing script : " + s + ", Elapsed Time: " + ((thisTime - startTime) / 1000) + " Seconds")
+			logDebug("Executing script : " + s + ", Elapsed Time: " + ((thisTime - inclStartTime) / 1000) + " Seconds")
 			eval(st);
-			}
+			return true;
 		}
-	catch (err) { handleError(err,s);	}
+	} catch (err) {
+		handleError(err, s);
 	}
-	 
- 
+	return false;
+} 
+//@ts-check
+/**
+ * Dynamically adds a workflow process as a subprocess to an existing task.
+ * @param {string} taskName Name of the task that is the parent for the sub-process.
+ * @param {string} process Name of the reference workflow process that the function adds a subprocess.
+ * @param {boolean} completeReqd True if you must complete the subprocess before you promote the parent task. Otherwise, false.
+ * @returns {boolean} True if successful, false if not.
+ */
 function insertSubProcess(taskName, process, completeReqd) {
-	var itemCap = capId;
 	var theTask = null;
-	if (arguments.length > 3)
-		itemCap = arguments[3]; // use cap ID specified in args
+
+	var itemCap;
+	if (typeof capId === typeof undefined) {
+		logDebug("'insertSubProcess' requires global 'capId' be defined.");
+		return false;
+	} else {
+		itemCap = capId;
+	}
+
 	var workflowResult = aa.workflow.getTaskItems(itemCap, taskName, null, null, null, null);
-	if (workflowResult.getSuccess())
-		wfObj = workflowResult.getOutput();
-	else {
+	if (workflowResult.getSuccess()) {
+		var wfObj = workflowResult.getOutput();
+	} else {
 		logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
-	for (var i in wfObj)
-		if (taskName.toUpperCase().equals(wfObj[i].getTaskDescription().toUpperCase()))
+
+	for (var i in wfObj) {
+		if (taskName.toUpperCase().equals(wfObj[i].getTaskDescription().toUpperCase())) {
 			theTask = wfObj[i];
+		}
+	}
+
 	if (theTask) {
 		var result = aa.workflow.insertSubProcess(theTask, process, completeReqd)
-			if (!result.getSuccess()) {
-				logDebug("error " + result.getErrorMessage());
-				return false;
-			}
-			logDebug("attached subprocess " + process + " to " + taskName);
+		if (!result.getSuccess()) {
+			logDebug("error " + result.getErrorMessage());
+			return false;
+		}
+
+		logDebug("attached subprocess " + process + " to " + taskName);
 		return true;
 	} else {
 		logDebug("couldn't find task " + taskName);
 		return false;
 	}
 } 
- 
-function insertTask(sourceTaskName,newTaskName,insertTaskType) 
-	{
-	itemCap = capId;
-	if (arguments.length > 3)
-		itemCap = arguments[3]; // use cap ID specified in args
-	var sTask;
+//@ts-check
+/**
+ * @param {string} sourceTaskName 
+ * @param {string} newTaskName 
+ * @param {string} insertTaskType 
+ * @returns {object} of task type if successful, {false} if not successful.
+ */
+function insertTask(sourceTaskName, newTaskName, insertTaskType) {
+	var itemCap;
+	if (arguments.length > 3) {
+		itemCap = arguments[3];
+	} else {
+		if (typeof capId === typeof undefined) {
+			logDebug("capId is undefined.");
+			return false;
+		} else {
+			itemCap = capId;
+		}
+	}
+
 	var tTask;
-	//copy as next task 
-	var insertNType ="N";
-	//copy as parrallel task
-	insertPType ="P";
-	
+
 	//get the task by the task path
-	var taskResult1 = aa.workflow.getTask(capId,sourceTaskName);
-	if (taskResult1.getSuccess())
-	{
+	var taskResult1 = aa.workflow.getTask(itemCap, sourceTaskName);
+	if (taskResult1.getSuccess()) {
 		tTask = taskResult1.getOutput();
 		aa.print("get task successful : task name = " + tTask.getTaskDescription() + "; Process name = " + tTask.getProcessCode());
+	} else {
+		aa.print("ERROR: Failed to get task! Name = " + sourceTaskName + ";" + taskResult1.getErrorMessage());
 	}
-	else
-		{ aa.print("ERROR: Failed to get task! Path = " + sourceTaskName +";" + taskResult1.getErrorMessage()); }
-		
+
 	//change the task name
 	tTask.setTaskDescription(newTaskName);
-	
-	var taskResult = aa.workflow.insertTask(tTask,insertTaskType);
-	if (taskResult.getSuccess())
-	{
+
+	var taskResult = aa.workflow.insertTask(tTask, insertTaskType);
+	if (taskResult.getSuccess()) {
 		var processId = tTask.getProcessID();
-		var stepNum =tTask.getStepNumber();
-		var taskResult1 = aa.workflow.getTask(capId,stepNum,processId);
-			
-		if (taskResult1.getSuccess())
-		{
+		var stepNum = tTask.getStepNumber();
+		var taskResult1 = aa.workflow.getTask(itemCap, stepNum, processId);
+
+		if (taskResult1.getSuccess()) {
 			tTask = taskResult1.getOutput();
 			aa.print("insert task successful : inserted task name = " + tTask.getTaskDescription() + "; Process name = " + tTask.getProcessCode());
+		} else {
+			aa.print("ERROR: Failed to get task! Name = " + newTaskName + ";" + taskResult1.getErrorMessage());
+			return false;
 		}
-		else
-			{ aa.print("ERROR: Failed to get task! Path = " + taskPath +";" + taskResult1.getErrorMessage()); return false; }
-		
+
+	} else {
+		aa.print("ERROR: Failed to insert task! Name = " + newTaskName + ";" + taskResult.getErrorMessage());
+		return false;
 	}
-	else
-		{ aa.print("ERROR: Failed to insert task! Path = " + taskPath +";" + taskResult.getErrorMessage()); return false; }
-		
-	
-	return tTask;  // returns task item
-} 
+
+	return tTask; // returns task item
+}
  
-function inspCancelAll()
-	{
+//@ts-check
+/**
+ * Cancels all scheduled and incomplete inspections on the current record.
+ * @returns {boolean} Returns true if successful, false if not.
+ */
+function inspCancelAll() {
+	if (typeof capId === typeof undefined) {
+		logDebug("capId is undefined.");
+		return false;
+	}
 	var isCancelled = false;
 	var inspResults = aa.inspection.getInspections(capId);
-	if (inspResults.getSuccess())
-		{
+	if (inspResults.getSuccess()) {
 		var inspAll = inspResults.getOutput();
 		var inspectionId;
 		var cancelResult;
-		for (ii in inspAll)
-			{
-			if (inspAll[ii].getDocumentDescription().equals("Insp Scheduled") && inspAll[ii].getAuditStatus().equals("A"))
-				{
+		for (var ii in inspAll) {
+			if (inspAll[ii].getDocumentDescription().equals("Insp Scheduled") && inspAll[ii].getAuditStatus().equals("A")) {
 				inspectionId = inspAll[ii].getIdNumber();		// Inspection identifier	
-				cancelResult = aa.inspection.cancelInspection(capId,inspectionId);
-				if (cancelResult.getSuccess())
-					{
+				cancelResult = aa.inspection.cancelInspection(capId, inspectionId);
+				if (cancelResult.getSuccess()) {
 					logMessage("Cancelling inspection: " + inspAll[ii].getInspectionType());
 					isCancelled = true;
-					}
-				else
-					logMessage("**ERROR","**ERROR: Cannot cancel inspection: "+inspAll[ii].getInspectionType()+", "+cancelResult.getErrorMessage());
 				}
-		  }
+				else {
+					logMessage("**ERROR", "**ERROR: Cannot cancel inspection: " + inspAll[ii].getInspectionType() + ", " + cancelResult.getErrorMessage());
+				}
+			}
 		}
-	else
-		logMessage("**ERROR: getting inspections: " + inspResults.getErrorMessage());
-	
-	return isCancelled;
 	}
+	else {
+		logMessage("**ERROR: getting inspections: " + inspResults.getErrorMessage());
+	}
+
+	return isCancelled;
+}
+
  
- 
+//@ts-check
+/**
+ * Invoices all assessed fees with fee code of fcode and fee period of fperiod.
+ * @param {string} fcode Fee code of the fee to invoice.
+ * @param {string} fperiod Fee period of the fee to invoice.
+ * @returns {boolean} Returns true if the function finds the assessed. Otherwise, returns false.
+ */
 function invoiceFee(fcode, fperiod) {
 	//invoices all assessed fees having fcode and fperiod
 	// SR5085 LL
+	if (typeof capId === typeof undefined) {
+        logDebug("'invoiceFee' requires global 'capId' be defined.");
+        return false;
+    }
+	// REMOVE check on type 'string'. Replace with undefined check.
+	if (typeof fcode === typeof undefined) {
+        logDebug("'invoiceFee' parameter 'fcode' must be present.");
+        return false;
+    }
+
+	if (typeof feeSeqList === typeof undefined) {
+        feeSeqList = new Array();
+    }
+	if (typeof paymentPeriodList === typeof undefined) {
+		paymentPeriodList = new Array();
+    }
+
 	var feeFound = false;
-	getFeeResult = aa.finance.getFeeItemsByFeeCodeAndPeriod(capId, fcode, fperiod, "NEW");
+	var getFeeResult = aa.finance.getFeeItemsByFeeCodeAndPeriod(capId, fcode, fperiod, "NEW");
 	if (getFeeResult.getSuccess()) {
 		var feeList = getFeeResult.getOutput();
-		for (feeNum in feeList)
+		for (var feeNum in feeList)
 			if (feeList[feeNum].getFeeitemStatus().equals("NEW")) {
 				var feeSeq = feeList[feeNum].getFeeSeqNbr();
 				feeSeqList.push(feeSeq);
@@ -11281,91 +14899,48 @@ function invoiceFee(fcode, fperiod) {
 	}
 	return feeFound;
 } 
- 
- function isBlank(str) {
+//@ts-check
+/**
+ * Checks to see if the passed in string is blank or not. Returns true if blank, false if not.
+ * @param {string} str
+ * @returns {boolean} Returns true if blank, false if not.
+ */
+function isBlank(str) {
+
     return (!str || /^\s*$/.test(str));
+
 }
+
  
- 
- function isEmpty(str) {
-    return (!str || 0 === str.length);
-}
- function isBlank(str) {
-    return (!str || /^\s*$/.test(str));
-}
- function getRoots(nodeId)
-{
-	var rootsArray = new Array();
-	var directParentsResult = aa.cap.getProjectByChildCapID(nodeId,'R',null);
-	
-    if (directParentsResult.getSuccess())
-    {
-		tmpdirectParents = directParentsResult.getOutput();
-		for(ff in tmpdirectParents) {
-			if (tmpdirectParents[ff]) {
-				
-				var tmpNode = getRootNode(tmpdirectParents[ff].getProjectID(), 1);
-				var id1 = tmpNode.getID1();
-				var id2 = tmpNode.getID2();
-				var id3 = tmpNode.getID3();
-				var pCapId = aa.cap.getCapID(id1,id2,id3).getOutput();
-				rootsArray.push(pCapId);
-			}
-		}
-    }
-	return rootsArray;
-}
- function isSameNode(node1, node2)
-{
-	if (node1 == null || node1 == undefined || node2 == null || node2 == undefined)
-	{
+//@ts-check
+/**
+ * Checks if the parameter is null/undefined or parameter length is 0.
+ * Does not check for type. Caller must ensure type is 'string' to yield a good result.
+ * @param {string} str 
+ * @returns {boolean} Returns true if the string is empty, otherwise false.
+ */
+function isEmpty(str) {
+	return (!str || 0 === str.length);
+} 
+//@ts-check
+/**
+ * Compares the two supplied PeopleModel instances. (com.accela.aa.emse.dom.CapContactScriptModel)
+ * If values of first-name, last-name, and Contact Type are the same then they are considered to match.
+ * Does not ignore case (uppercase, lowercase) when comparing values.
+ * @param {object} capContactScriptModel People Model
+ * @param {object} capContactScriptModel2 People Model
+ * @returns {boolean} Returns true if the people models are the same, otherwise false.
+ */
+function isMatchPeople(capContactScriptModel, capContactScriptModel2) {
+
+	if (typeof capContactScriptModel === typeof undefined 
+            || typeof capContactScriptModel2 === typeof undefined  
+            || capContactScriptModel == null 
+            || capContactScriptModel2 == null) {
+        logDebug("'isMatchPeople' needs two instances of CapContactScriptModel as parameters.");
 		return false;
 	}
-	return node1.getID1() == node2.getID1() && node1.getID2() == node2.getID2() && node1.getID3() == node2.getID3();
-}
- function getRootNode(nodeId, depth)
-{
-	if (depth > 9)
-	{
-		return nodeId;
-	}
-	var depthCount = depth + 1;
-	var currentNode = nodeId;
-	var directParentsResult = aa.cap.getProjectByChildCapID(currentNode,'R',null);
-    if (directParentsResult.getSuccess())
-    {
-		directParents = directParentsResult.getOutput();
-		for(var ff in directParents) {
-			
-			if (directParents[ff])
-			{
-				
-				var id1 = directParents[ff].getProjectID().getID1();
-				var id2 = directParents[ff].getProjectID().getID2();
-				var id3 = directParents[ff].getProjectID().getID3();				
-				
-				while (!isSameNode(currentNode,directParents[ff].getProjectID()))
-				{
-					currentNode = getRootNode(directParents[ff].getProjectID(), depthCount);					
-				}
-			}			
-		}
-    }
-	return currentNode;
-}
 
-
-
-
-
- 
- 
- function isMatchPeople(capContactScriptModel, capContactScriptModel2)
-{
-	if (capContactScriptModel == null || capContactScriptModel2 == null)
-	{
-		return false;
-	}
 	var contactType1 = capContactScriptModel.getCapContactModel().getPeople().getContactType();
 	var contactType2 = capContactScriptModel2.getCapContactModel().getPeople().getContactType();
 	var firstName1 = capContactScriptModel.getCapContactModel().getPeople().getFirstName();
@@ -11374,49 +14949,51 @@ function invoiceFee(fcode, fperiod) {
 	var lastName2 = capContactScriptModel2.getCapContactModel().getPeople().getLastName();
 	var fullName1 = capContactScriptModel.getCapContactModel().getPeople().getFullName();
 	var fullName2 = capContactScriptModel2.getCapContactModel().getPeople().getFullName();
-	if ((contactType1 == null && contactType2 != null) 
-		|| (contactType1 != null && contactType2 == null))
-	{
-		return false;
-	}
-	if (contactType1 != null && !contactType1.equals(contactType2))
-	{
-		return false;
-	}
-	if ((firstName1 == null && firstName2 != null) 
-		|| (firstName1 != null && firstName2 == null))
-	{
-		return false;
-	}
-	if (firstName1 != null && !firstName1.equals(firstName2))
-	{
-		return false;
-	}
-	if ((lastName1 == null && lastName2 != null) 
-		|| (lastName1 != null && lastName2 == null))
-	{
-		return false;
-	}
-	if (lastName1 != null && !lastName1.equals(lastName2))
-	{
-		return false;
-	}
-	if ((fullName1 == null && fullName2 != null) 
-		|| (fullName1 != null && fullName2 == null))
-	{
-		return false;
-	}
-	if (fullName1 != null && !fullName1.equals(fullName2))
-	{
-		return false;
-	}
-	return	true;
-}
 
+	if ((contactType1 == null && contactType2 != null) || (contactType1 != null && contactType2 == null)) {
+		return false;
+	}
+
+	if (contactType1 != null && !contactType1.equals(contactType2)) {
+		return false;
+	}
+
+	if ((firstName1 == null && firstName2 != null) || (firstName1 != null && firstName2 == null)) {
+		return false;
+	}
+
+	if (firstName1 != null && !firstName1.equals(firstName2)) {
+		return false;
+	}
+
+	if ((lastName1 == null && lastName2 != null) || (lastName1 != null && lastName2 == null)) {
+		return false;
+	}
+
+	if (lastName1 != null && !lastName1.equals(lastName2)) {
+		return false;
+	}
+
+	if ((fullName1 == null && fullName2 != null) || (fullName1 != null && fullName2 == null)) {
+		return false;
+	}
+
+	if (fullName1 != null && !fullName1.equals(fullName2)) {
+		return false;
+	}
+
+	return true;
+}
  
- 
+//@ts-check
+/**
+ * This function tests if a record has an expiration that is ready for renewal.
+ * @param {object} capid CapID object
+ * @returns {boolean} Returns true if the record has an expiration that is ready for renewal, otherwise false.
+ */
 function isReadyRenew(capid) {
-    if (capid == null || aa.util.instanceOfString(capid)) {
+    if (typeof capid === typeof undefined || capid == null || aa.util.instanceOfString(capid)) {
+        logDebug("'isReadyRenew' Parameter 'capid' cannot be null, undefined, or string");
         return false;
     }
     var result = aa.expiration.isExpiredLicenses(capid);
@@ -11424,11 +15001,10 @@ function isReadyRenew(capid) {
         return true;
     }
     else {
-        logDebug("ERROR: Failed to get expiration with CAP(" + capid + "): " + result.getErrorMessage());
+        logDebug("ERROR: 'isReadyRenew' Failed to get expiration with CAP(" + capid + "): " + result.getErrorMessage());
     }
     return false;
 }
- 
  
 function isRenewProcess(parentCapID, partialCapID) {
     //1. Check to see parent CAP ID is null.
@@ -11457,22 +15033,30 @@ function isRenewProcess(parentCapID, partialCapID) {
             logDebug("Warning: Renewal process was initiated before. ( " + parentCapID + ")");
             return false;
         }
+
     }
     //4 . Check to see if parent CAP is ready for renew.
     return isReadyRenew(parentCapID);
 }
  
- 
  function isSameNode(node1, node2)
+
 {
+
 	if (node1 == null || node1 == undefined || node2 == null || node2 == undefined)
+
 	{
+
 		return false;
+
 	}
+
 	return node1.getID1() == node2.getID1() && node1.getID2() == node2.getID2() && node1.getID3() == node2.getID3();
+
 }
 
- 
+
+
  
 function isScheduled(inspType)
 	{
@@ -11487,7 +15071,7 @@ function isScheduled(inspType)
 		}
 	return found;
 	}
- 
+
  
 function isTaskActive(wfstr) // optional process name
 {
@@ -11497,6 +15081,7 @@ function isTaskActive(wfstr) // optional process name
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		wfObj = workflowResult.getOutput();
@@ -11504,6 +15089,7 @@ function isTaskActive(wfstr) // optional process name
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName)))
@@ -11514,7 +15100,6 @@ function isTaskActive(wfstr) // optional process name
 	}
 }
  
- 
 function isTaskComplete(wfstr) // optional process name
 {
 	var useProcess = false;
@@ -11523,6 +15108,7 @@ function isTaskComplete(wfstr) // optional process name
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, "Y", null, null);
 	if (workflowResult.getSuccess())
 		wfObj = workflowResult.getOutput();
@@ -11530,6 +15116,7 @@ function isTaskComplete(wfstr) // optional process name
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName)))
@@ -11540,7 +15127,6 @@ function isTaskComplete(wfstr) // optional process name
 	}
 }
  
- 
 function isTaskStatus(wfstr, wfstat) // optional process name
 {
 	var useProcess = false;
@@ -11549,6 +15135,7 @@ function isTaskStatus(wfstr, wfstat) // optional process name
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, wfstat, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -11556,6 +15143,7 @@ function isTaskStatus(wfstr, wfstat) // optional process name
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName)))
@@ -11569,7 +15157,7 @@ function isTaskStatus(wfstr, wfstat) // optional process name
 	return false;
 }
  
- 
+
 function jsDateToASIDate(dateValue)
 {
   //Converts Javascript Date to ASI 0 pad MM/DD/YYYY
@@ -11599,7 +15187,7 @@ function jsDateToASIDate(dateValue)
 	return ("NULL PARAMETER VALUE");
   }
 }
- 
+
  
 function jsDateToMMDDYYYY(pJavaScriptDate)
 	{
@@ -11621,7 +15209,7 @@ function jsDateToMMDDYYYY(pJavaScriptDate)
 		return ("NULL PARAMETER VALUE");
 		}
 	}
- 
+
  
 function licEditExpInfo (pExpStatus, pExpDate)
 	{
@@ -11642,7 +15230,6 @@ function licEditExpInfo (pExpStatus, pExpDate)
 	}
 	
  
- 
 /**
 Title : licenseObject
 Purpose : Licence Object Class
@@ -11650,6 +15237,7 @@ Functional Area : Licensing
 Description : Licence Object Class that links Reference License Professional by the License Number and Optional License Type to allow updates
 Script Type : EMSE, Pageflow, Batch
 Call Example: var licObj = new licenseObject("RN17-00058", capId,"Nurse Practitioner");
+
 Methods: 
 setExpiration(expDate) - Update Expiration date on the Renewal and the linked Reference License
 setIssued(issuedDate) - Update Issued date on the linked Reference License
@@ -11657,15 +15245,18 @@ setLastRenewal(lastRenewalAADate) - Update the Last Renewal date on the linked R
 setStatus(licStat) - Update Status on the Renewal
 getStatus() - Get the Renewal Expiration Status
 getCode() - Get the Renewal Expiration Code
+
 @param licnumber {String}
 @param [vCapId] {capId}
 @param [licenseType] {String}
 @return {refLicObj}
  */
+
 function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID -- uses the expiration on the renewal CAP.
 	{
 	itemCap = capId;
 	if (!matches(vCapId,undefined,null,"")) itemCap = vCapId; // use cap ID specified in args
+
 
 	this.refProf = null;		// licenseScriptModel (reference licensed professional)
 	this.b1Exp = null;		// b1Expiration record (renewal status on application)
@@ -11675,6 +15266,7 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 	this.refExpDate = null;
 	this.licNum = licnumber;	// License Number
 	this.licType = vLicType		// Licence Type (optional)
+
 
 	// Load the reference License Professional if we're linking the two
 	if (licnumber) // we're linking
@@ -11689,7 +15281,9 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 				logDebug("(licenseObject) Loaded reference license professional with Expiration of " + this.refExpDate);
 				}
 		}
+
    	// Load the renewal info (B1 Expiration)
+
    	b1ExpResult = aa.expiration.getLicensesByCapID(itemCap)
    		if (b1ExpResult.getSuccess())
    			{
@@ -11703,37 +15297,45 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 		else
 			{ logDebug("(licenseObject) **ERROR: Getting B1Expiration Object for Cap.  Reason is: " + b1ExpResult.getErrorType() + ":" + b1ExpResult.getErrorMessage()) ; return false }
 
+
    	this.setExpiration = function(expDate)
    		// Update expiration date
    		{
    		var expAADate = aa.date.parseDate(expDate);
+
    		if (this.refProf) {
    			this.refProf.setLicenseExpirationDate(expAADate);
    			aa.licenseScript.editRefLicenseProf(this.refProf);
    			logDebug("(licenseObject) Updated Reference License Expiration to " + expDate); }
+
    		if (this.b1Exp)  {
  				this.b1Exp.setExpDate(expAADate);
 				aa.expiration.editB1Expiration(this.b1Exp.getB1Expiration());
 				logDebug("(licenseObject) Updated Renewal Expiration Date to " + expDate); }
    		}
+
 	this.setIssued = function(issuedDate)
 		// Update Issued date
 		{
 		var issuedAADate = aa.date.parseDate(issuedDate);
+
 		if (this.refProf) {
 			this.refProf.setLicenseIssueDate(issuedAADate);
 			aa.licenseScript.editRefLicenseProf(this.refProf);
 			logDebug("(licenseObject) Updated Reference License Issued Date to " + issuedDate); }
+
 		}
 	this.setLastRenewal = function(lastRenewalDate)
 		// Update expiration date
 		{
 		var lastRenewalAADate = aa.date.parseDate(lastRenewalDate)
+
 		if (this.refProf) {
 			this.refProf.setLicenseLastRenewalDate(lastRenewalAADate);
 			aa.licenseScript.editRefLicenseProf(this.refProf);
 			logDebug("(licenseObject) Updated Reference License Last Renewal Date to " + lastRenewalDate); }
 		}
+
 	this.setStatus = function(licStat)
 		// Update expiration status
 		{
@@ -11742,6 +15344,7 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 			aa.expiration.editB1Expiration(this.b1Exp.getB1Expiration());
 			logDebug("(licenseObject) Updated Renewal Expiration Status to " + licStat); }
 		}
+
 	this.getStatus = function()
 		// Get Expiration Status
 		{
@@ -11749,6 +15352,7 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 			return this.b1Exp.getExpStatus();
 			}
 		}
+
 	this.getCode = function()
 		// Get Expiration Code
 		{
@@ -11757,7 +15361,6 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 			}
 		}
 	} 
- 
 /**
 * License Professional Object 
 * <p>
@@ -11805,6 +15408,7 @@ function licenseObject(licnumber,vCapId,vLicType)  // optional renewal Cap ID --
 * @param [vCapId] {capIdModel} (optional)
 * @return {licenseProfObject}
 */
+
 function licenseProfObject(licnumber, lictype, vCapId) {
 	//Populate the License Model
 	this.refLicModel = null; //Reference LP Model
@@ -11816,7 +15420,9 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 	this.valid = false; //true if LP is valid
 	this.validTables = false; //true if LP has infoTables
 	this.validAttrs = false; //true if LP has attributes
+
 	var itemCap = (vCapId) ? vCapId : capId;
+
 	if(itemCap){
 		var capLicenseResult = aa.licenseScript.getLicenseProf(itemCap);
 		if (capLicenseResult.getSuccess())
@@ -11826,14 +15432,17 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		else
 			{ logDebug("**ERROR: getting lic prof: " + capLicenseResult.getErrorMessage()); return false; }
 
+
 		if (!capLicenseArr || capLicenseArr.length == 0) {
 			logDebug("WARNING: no license professional available on the application:");
 		}
+
 		if (capLicenseArr && capLicenseArr.length > 0) {
 			for (var iCapLP in capLicenseArr) {
 				var licProfScriptModel = capLicenseArr[iCapLP];
 				var rlpId = licProfScriptModel.getLicenseNbr();
 				var rlpType = licProfScriptModel.getLicenseType();
+
 				if (rlpId == licnumber) {
 					this.capLicProfScriptModel = licProfScriptModel;
 				}
@@ -11841,6 +15450,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		
 	}
+
 	var result = aa.licenseScript.getRefLicensesProfByLicNbr(aa.getServiceProviderCode(), licnumber);
 	if (result.getSuccess()) {
 		var tmp = result.getOutput();
@@ -11873,6 +15483,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 					tmpGrp.setReferenceId(this.refLicModel.getLicSeqNbr());
 					infoSvc.setInfoTableGroupCodeModel(tmpGrp);
 					aa.licenseProfessional.createRefInfoTable(infoSvc);
+
 					//Recapture new data with Table Model
 					var tmp = null;
 					tmp = aa.licenseScript.getRefLicensesProfByLicNbr(aa.getServiceProviderCode(), licnumber).getOutput();
@@ -11887,11 +15498,13 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			}
 		}
 	}
+
 	if (this.infoTableGroupCodeObj != null) {
 		var tmp = this.infoTableGroupCodeObj.getSubgroups();
 		if (tmp != null)
 			this.infoTableSubGroupCodesObj = tmp.toArray();
 	}
+
 	//Set flags that can be used for validation
 	this.validTables = (this.infoTableSubGroupCodesObj != null);
 	this.valid = (this.refLicModel != null);
@@ -11957,7 +15570,9 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			addParameter(params, "$$" + vLicType + "Country$$", this.capLicProfScriptModel.getCountry());	
 		}
 		return params;
+
 	}
+
 	//Get all the Table Values, done this way to keep it clean when a row is added
 	//Can also be used to refresh manually
 	this.refreshTables = function () {
@@ -11990,6 +15605,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 	}
 	this.refreshTables(); //Invoke the Table Refresh to popualte our table arrays
+
 	//Get max row from table for sequencing
 	this.getMaxRowByTable = function (vTableName) {
 		var maxRow = -1;
@@ -12004,6 +15620,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return maxRow;
 	}
+
 	//Add Row to Table
 	this.addTableRow = function (vTableName, vValueArray) {
 		var retVal = false;
@@ -12034,6 +15651,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 							if (val.toString().toUpperCase() == colsArr[col].getName().toString().toUpperCase()) {
 								tmpTv.setValue(vValueArray[val].toString()); //Get Value from associative array
 							}
+
 						colsArr[col].addTableValue(tmpTv);
 						retVal = true;
 					}
@@ -12041,6 +15659,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 				}
 		return retVal;
 	}
+
 	//Process an ASIT row into People Info
 	this.addTableFromASIT = function (vTableName, vASITArray) {
 		var retVal = true;
@@ -12053,6 +15672,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			retVal = false;
 		return retVal;
 	}
+
 	//Remove Row from Table
 	this.removeTableRow = function (vTableName, vRowIndex) {
 		var retVal = false;
@@ -12086,8 +15706,10 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 				} //end Table loop
 			} //end table loop
 		} //end table valid check
+
 		return retVal;
 	}
+
 	this.removeTable = function (vTableName) {
 		var retVal = false;
 		if (this.validTables) {
@@ -12109,8 +15731,10 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 				} //end Table loop
 			} //end table loop
 		} //end table valid check
+
 		return retVal;
 	}
+
 	//Enable or Disable Table Row by index
 	this.setTableEnabledFlag = function (vTableName, vRowIndex, isEnabled) {
 		var updated = false
@@ -12125,6 +15749,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			}
 		return updated;
 	}
+
 	//Makes table visible in ACA Lookup
 	//vIsVisible = 'Y' or 'N'
 	this.setDisplayInACA4Table = function (vTableName, vIsVisible) {
@@ -12153,6 +15778,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		} //end table valid check
 		return retVal;
 	}
+
 	//Get the Attributes for LP
 	if (this.valid) {
 		var tmpAttrs = this.refLicModel.getAttributes();
@@ -12169,6 +15795,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			}
 		}
 	}
+
 	//get method for Attributes
 	this.getAttribute = function (vAttributeName) {
 		var retVal = null;
@@ -12179,6 +15806,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return retVal;
 	}
+
 	//Set method for Attributes
 	this.setAttribute = function (vAttributeName, vAttributeValue) {
 		var retVal = false;
@@ -12202,6 +15830,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			if (capLicenseResult.getSuccess()) {
 				capLicenseArr = capLicenseResult.getOutput();
 			}
+
 			if (capLicenseArr != null) {
 				for (capLic in capLicenseArr) {
 					var lpsm = capLicenseArr[capLic];
@@ -12214,6 +15843,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			}
 		}
 	}
+
 	//Update From Record Contact by Contact Type
 	//Uses first contact of type found
 	//If contactType == "" then uses primary
@@ -12223,19 +15853,23 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		if (this.valid) {
 			var conArr = new Array();
 			var capContResult = aa.people.getCapContactByCapID(vCapId);
+
 			if (capContResult.getSuccess()) {
 				conArr = capContResult.getOutput();
 			} else {
 				retVal = false;
 			}
+
 			for (contact in conArr) {
 				if (vContactType.toString().toUpperCase() ==
 					conArr[contact].getPeople().getContactType().toString().toUpperCase()
 					 || (vContactType.toString() == "" && conArr[contact].getPeople().getFlag() == "Y")) {
+
 					cont = conArr[contact];
 					peop = cont.getPeople();
 					addr = peop.getCompactAddress();
 					
+
 					this.refLicModel.setContactFirstName(cont.getFirstName());
 					this.refLicModel.setContactMiddleName(peop.getMiddleName()); //get mid from peop
 					this.refLicModel.setContactLastName(cont.getLastName());
@@ -12290,6 +15924,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 					this.refLicModel.setAuditDate(sysDate);
 					this.refLicModel.setAuditID(currentUserID);
 					this.refLicModel.setAuditStatus("A");
+
 					retVal = true;
 					break;
 				}
@@ -12297,6 +15932,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return retVal;
 	}
+
 	this.updateFromAddress = function (vCapId) {
 		var retVal = false;
 		if (this.valid) {
@@ -12317,6 +15953,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			} else {
 				logMessage("**ERROR: Failed to get addresses: " + capAddressResult.getErrorMessage());
 			}
+
 			if (addr != null) {
 				var addrLine1 = addr.getAddressLine1();
 				if (addrLine1 == null) {
@@ -12339,11 +15976,13 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return retVal;
 	}
+
 	//Update From Record Licensed Prof
 	//License Number and Type must match that of the Record License Prof
 	this.updateFromRecordLicensedProf = function (vCapId) {
 		var retVal = false;
 		if (this.valid) {
+
 			var capLicenseResult = aa.licenseProfessional.getLicenseProf(vCapId);
 			var capLicenseArr = new Array();
 			if (capLicenseResult.getSuccess()) {
@@ -12351,10 +15990,13 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			} else {
 				retVal = false;
 			}
+
 			for (capLic in capLicenseArr) {
 				if (capLicenseArr[capLic].getLicenseNbr() + "" == this.refLicModel.getStateLicense() + ""
 					 && capLicenseArr[capLic].getLicenseType() + "" == this.refLicModel.getLicenseType() + "") {
+
 					licProfScriptModel = capLicenseArr[capLic];
+
 					this.refLicModel.setAddress1(licProfScriptModel.getAddress1());
 					this.refLicModel.setAddress2(licProfScriptModel.getAddress2());
 					this.refLicModel.setAddress3(licProfScriptModel.getAddress3());
@@ -12383,18 +16025,21 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 					this.refLicModel.setSuffixName(licProfScriptModel.getSuffixName());
 					this.refLicModel.setWcExempt(licProfScriptModel.getWorkCompExempt());
 					this.refLicModel.setZip(licProfScriptModel.getZip());
+
 					//new
 					this.refLicModel.setFein(licProfScriptModel.getFein());
 					//licProfScriptModel.getBirthDate()
 					//licProfScriptModel.getTitle()
 					this.refLicModel.setPhone3(licProfScriptModel.getPhone3());
 					this.refLicModel.setBusinessName2(licProfScriptModel.getBusName2());
+
 					retVal = true;
 				}
 			}
 		}
 		return retVal;
 	}
+
 	//Copy Reference Licensed Professional to a Record
 	//If replace is true will remove and readd lic_prof
 	//Currently wont copy infoTables...
@@ -12407,6 +16052,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			if (capLicenseResult.getSuccess()) {
 				capLicenseArr = capLicenseResult.getOutput();
 			}
+
 			if (capLicenseArr != null) {
 				for (capLic in capLicenseArr) {
 					if (capLicenseArr[capLic].getLicenseNbr() + "" == this.refLicModel.getStateLicense() + ""
@@ -12420,6 +16066,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 					}
 				}
 			}
+
 			if (!existing) {
 				capListResult = aa.licenseScript.associateLpWithCap(vCapId, this.refLicModel);
 				retVal = capListResult.getSuccess();
@@ -12453,12 +16100,14 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return retVal;
 	}
+
 	this.enable = function () {
 		this.refLicModel.setAuditStatus("A");
 	}
 	this.disable = function () {
 		this.refLicModel.setAuditStatus("I");
 	}
+
 	//get records associated to license
 	this.getAssociatedRecords = function () {
 		var retVal = new Array();
@@ -12472,6 +16121,7 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 		}
 		return retVal;
 	}
+
 	//Save Changes to this object to Ref Licensed Professional
 	this.updateRecord = function () {
 		var retVal = false
@@ -12482,57 +16132,102 @@ function licenseProfObject(licnumber, lictype, vCapId) {
 			}
 			return retVal;
 	}
+
 	return this
 }
  
- 
  function linkPublicUserToContact()   // optional: Contact Type, default Applicant
+
 {
+
     var contactType = "Applicant";
+
     var contact;
+
     var refContactNum;
+
     var userModel;
+
     if (arguments.length > 0) contactType = arguments[0]; // use contact type specified
 
+
+
     var capContactResult = aa.people.getCapContactByCapID(capId);
+
     if (capContactResult.getSuccess()) {
+
 		var Contacts = capContactResult.getOutput();
+
         for (yy in Contacts) {
+
             if (contactType.equals(Contacts[yy].getCapContactModel().getPeople().getContactType()))
+
 				contact = Contacts[yy];
+
         }
+
     }
+
     
+
     if (!contact)
+
     { logDebug("Couldn't link public user for " + contactType + ", no such contact"); return false; }
 
 
+
+
+
 	if (contact.getPeople().getContactTypeFlag().equals("organization"))
+
 	{ logDebug("Couldn't link public user for " + contactType + ", the contact is an organization"); return false; }
+
 	
+
     // get the reference contact ID.   We will use to connect to the new public user
+
     refContactNum = contact.getCapContactModel().getRefContactNumber();
 
+
+
     // check to see if public user exists already based on email address
+
     var getUserResult = aa.publicUser.getPublicUserByPUser(publicUserID);
+
     if (getUserResult.getSuccess() && getUserResult.getOutput()) {
+
         userModel = getUserResult.getOutput();
+
         logDebug("linkPublicUserToContact: Found an existing public user: " + userModel.getUserID());
+
 	} else {
+
 		logDebug("Couldn't link public user for " + contactType + ", no such public user"); return false;
+
 	}
 
+
+
 	//  Now that we have a public user let's connect to the reference contact		
+
 	
+
 	if (refContactNum)
+
 		{
+
 		logDebug("linkPublicUserToContact: Linking this public user with reference contact : " + refContactNum);
+
 		aa.licenseScript.associateContactWithPublicUser(userModel.getUserSeqNum(), refContactNum);
+
 		}
+
 	
+
 	return userModel; // send back the new or existing public user
+
 }
- 
+
  
 function loadAddressAttributes(thisArr)
 {
@@ -12540,19 +16235,23 @@ function loadAddressAttributes(thisArr)
 	// Returns an associative array of Address Attributes
 	// Optional second parameter, cap ID to load from
 	//
+
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var fcapAddressObj = null;
    	var capAddressResult = aa.address.getAddressWithAttributeByCapId(itemCap);
    	if (capAddressResult.getSuccess())
    		var fcapAddressObj = capAddressResult.getOutput();
    	else
      		logDebug("**ERROR: Failed to get Address object: " + capAddressResult.getErrorType() + ":" + capAddressResult.getErrorMessage())
+
   	for (i in fcapAddressObj)
   	{
   		addressAttrObj = fcapAddressObj[i].getAttributes().toArray();
   		for (z in addressAttrObj)
 			thisArr["AddressAttribute." + addressAttrObj[z].getB1AttributeName()]=addressAttrObj[z].getB1AttributeValue();
+
 		// Explicitly load some standard values
 		thisArr["AddressAttribute.PrimaryFlag"] = fcapAddressObj[i].getPrimaryFlag();
 		thisArr["AddressAttribute.HouseNumberStart"] = fcapAddressObj[i].getHouseNumberStart();
@@ -12571,14 +16270,16 @@ function loadAddressAttributes(thisArr)
   	}
 }
  
- 
+
 function loadAddressAttributes4ACA(thisArr)
 {
 	//
 	// Returns an associative array of Address Attributes from ACA cap model
 	// 
 	//
+
 	fcapAddressObj = cap.getAddressModel();
+
   	if (!fcapAddressObj)
   		{ logDebug("No Address to get attributes"); return false; }
   	
@@ -12586,9 +16287,12 @@ function loadAddressAttributes4ACA(thisArr)
 		
 	if (!addressAttr)
 		{ logDebug("No attributes on this address") ; return false ; }
+
 	addressAttrObj = addressAttr.toArray();
+
 	for (z in addressAttrObj)
 		thisArr["AddressAttribute." + addressAttrObj[z].getB1AttributeName()]=addressAttrObj[z].getB1AttributeValue();
+
 	// Explicitly load some standard values
 	thisArr["AddressAttribute.PrimaryFlag"] = fcapAddressObj.getPrimaryFlag();
 	thisArr["AddressAttribute.HouseNumberStart"] = fcapAddressObj.getHouseNumberStart();
@@ -12606,7 +16310,6 @@ function loadAddressAttributes4ACA(thisArr)
 	thisArr["AddressAttribute.YCoordinate"] = fcapAddressObj.getYCoordinator();
 }
  
- 
 function loadAppSpecific(thisArr) {
 	// 
 	// Returns an associative array of App Specific Info
@@ -12615,10 +16318,12 @@ function loadAppSpecific(thisArr) {
 	
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
     	var appSpecInfoResult = aa.appSpecificInfo.getByCapID(itemCap);
 	if (appSpecInfoResult.getSuccess())
 	 	{
 		var fAppSpecInfoObj = appSpecInfoResult.getOutput();
+
 		for (loopk in fAppSpecInfoObj)
 			{
 			if (useAppSpecificGroupName)
@@ -12628,7 +16333,7 @@ function loadAppSpecific(thisArr) {
 			}
 		}
 	}
- 
+
  
 function loadAppSpecific4ACA(thisArr) {
 	//
@@ -12637,11 +16342,14 @@ function loadAppSpecific4ACA(thisArr) {
 	//
 	// uses capModel in this event
 
+
 	var itemCap = capId;
 	if (arguments.length >= 2)
 		{
 		itemCap = arguments[1]; // use cap ID specified in args
+
     		var fAppSpecInfoObj = aa.appSpecificInfo.getByCapID(itemCap).getOutput();
+
 		for (loopk in fAppSpecInfoObj)
 			{
 			if (useAppSpecificGroupName)
@@ -12658,6 +16366,7 @@ function loadAppSpecific4ACA(thisArr) {
 			}
 		else {
 			var i= cap.getAppSpecificInfoGroups().iterator();
+
 			while (i.hasNext())
 				{
 				 var group = i.next();
@@ -12668,6 +16377,7 @@ function loadAppSpecific4ACA(thisArr) {
 					while (iteFields.hasNext())
 						{
 						 var field = iteFields.next();
+
 						if (useAppSpecificGroupName)
 							thisArr[field.getCheckboxType() + "." + field.getCheckboxDesc()] = field.getChecklistComment();
 						else
@@ -12678,33 +16388,40 @@ function loadAppSpecific4ACA(thisArr) {
 			}
 		}
 	} 
- 
 function loadAppSpecific4Contact(thisArr, contactSeqNbr) {
 	var itemCap = capId;
 	if (arguments.length == 3)
 		itemCap = arguments[2]; // use cap ID specified in args
+
 	var capContactResult = aa.people.getCapContactByPK(itemCap, contactSeqNbr);
 	if (capContactResult.getSuccess()) {
 		var capContact = capContactResult.getOutput().getCapContactModel();
+
 		if (capContact == null || capContact.getTemplate() == null || capContact.getTemplate().getTemplateForms() == null) {
 			//logDebug("No found any Contact Template !");
 			return;
 		}
+
 		var template = capContact.getTemplate();
 		var templateForms = template.getTemplateForms();
 
 		for (var i = 0; i < templateForms.size(); i++) {
 			var eachForm = templateForms.get(i);
+
 			//Sub Group
 			var subGroup = eachForm.subgroups;
+
 			if (subGroup == null) {
 				continue;
 			}
+
 			for (var j = 0; j < subGroup.size(); j++) {
 				var eachSubGroup = subGroup.get(j);
+
 				if (eachSubGroup == null || eachSubGroup.fields == null) {
 					continue;
 				}
+
 				var allFields = eachSubGroup.fields;
 				for (var k = 0; k < allFields.size(); k++) {
 					var eachField = allFields.get(k);
@@ -12713,35 +16430,45 @@ function loadAppSpecific4Contact(thisArr, contactSeqNbr) {
 			}
 		}
 	}
+
 } 
- 
+
 
 function loadASITable(tname) {
+
  	//
  	// Returns a single ASI Table array of arrays
 	// Optional parameter, cap ID to load from
 	//
+
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var gm = aa.appSpecificTableScript.getAppSpecificTableGroupModel(itemCap).getOutput();
 	var ta = gm.getTablesArray()
 	var tai = ta.iterator();
+
 	while (tai.hasNext())
 	  {
 	  var tsm = tai.next();
 	  var tn = tsm.getTableName();
+
       if (!tn.equals(tname)) continue;
+
 	  if (tsm.rowIndex.isEmpty())
 	  	{
 			logDebug("Couldn't load ASI Table " + tname + " it is empty");
 			return false;
 		}
+
    	  var tempObject = new Array();
 	  var tempArray = new Array();
+
   	  var tsmfldi = tsm.getTableField().iterator();
 	  var tsmcoli = tsm.getColumns().iterator();
       var readOnlyi = tsm.getAppSpecificTableModel().getReadonlyField().iterator(); // get Readonly filed
 	  var numrows = 1;
+
 	  while (tsmfldi.hasNext())  // cycle through fields
 		{
 		if (!tsmcoli.hasNext())  // cycle through columns
@@ -12759,74 +16486,93 @@ function loadASITable(tname) {
 		}
 		var fieldInfo = new asiTableValObj(tcol.getColumnName(), tval, readOnly);
 		tempObject[tcol.getColumnName()] = fieldInfo;
+
 		}
 		tempArray.push(tempObject);  // end of record
 	  }
 	  return tempArray;
 	}
- 
+
  
 function loadASITables() {
+
  	//
  	// Loads App Specific tables into their own array of arrays.  Creates global array objects
 	//
 	// Optional parameter, cap ID to load from
 	//
+
 	var itemCap = capId;
 	if (arguments.length == 1) itemCap = arguments[0]; // use cap ID specified in args
+
 	var gm = aa.appSpecificTableScript.getAppSpecificTableGroupModel(itemCap).getOutput();
 	var ta = gm.getTablesArray()
 	var tai = ta.iterator();
-	while (tai.hasNext())
-	  {
-	  var tsm = tai.next();
-	  var tempObject = new Array();
-	  var tempArray = new Array();
-	  var tn = tsm.getTableName();
- 	  var numrows = 0;
-	  tn = String(tn).replace(/[^a-zA-Z0-9]+/g,'');
-	  if (!isNaN(tn.substring(0,1))) tn = "TBL" + tn  // prepend with TBL if it starts with a number
-	  if (!tsm.rowIndex.isEmpty())
-	  	{
-	  	  var tsmfldi = tsm.getTableField().iterator();
-		  var tsmcoli = tsm.getColumns().iterator();
-		  var readOnlyi = tsm.getAppSpecificTableModel().getReadonlyField().iterator(); // get Readonly filed
-		  var numrows = 1;
-		  while (tsmfldi.hasNext())  // cycle through fields
+
+	if(tai != null && typeof(tai).hasNext != "undefined"){
+
+		while (tai.hasNext())
+		{
+		var tsm = tai.next();
+
+		var tempObject = new Array();
+		var tempArray = new Array();
+		var tn = tsm.getTableName();
+		var numrows = 0;
+		tn = String(tn).replace(/[^a-zA-Z0-9]+/g,'');
+
+		if (!isNaN(tn.substring(0,1))) tn = "TBL" + tn  // prepend with TBL if it starts with a number
+
+		if (!tsm.rowIndex.isEmpty())
 			{
-			if (!tsmcoli.hasNext())  // cycle through columns
+			var tsmfldi = tsm.getTableField().iterator();
+			var tsmcoli = tsm.getColumns().iterator();
+			var readOnlyi = tsm.getAppSpecificTableModel().getReadonlyField().iterator(); // get Readonly filed
+			var numrows = 1;
+
+			while (tsmfldi.hasNext())  // cycle through fields
 				{
-				var tsmcoli = tsm.getColumns().iterator();
+				if (!tsmcoli.hasNext())  // cycle through columns
+					{
+					var tsmcoli = tsm.getColumns().iterator();
+					tempArray.push(tempObject);  // end of record
+					var tempObject = new Array();  // clear the temp obj
+					numrows++;
+					}
+				var tcol = tsmcoli.next();
+				var tval = tsmfldi.next();
+				
+				var readOnly = 'N';
+				if (readOnlyi.hasNext()) {
+					readOnly = readOnlyi.next();
+					}
+
+				var fieldInfo = new asiTableValObj(tcol.getColumnName(), tval, readOnly);
+				tempObject[tcol.getColumnName()] = fieldInfo;
+				//tempObject[tcol.getColumnName()] = tval;
+				}
+
 				tempArray.push(tempObject);  // end of record
-				var tempObject = new Array();  // clear the temp obj
-				numrows++;
-				}
-			var tcol = tsmcoli.next();
-			var tval = tsmfldi.next();
-			
-			var readOnly = 'N';
-			if (readOnlyi.hasNext()) {
-				readOnly = readOnlyi.next();
-				}
-			var fieldInfo = new asiTableValObj(tcol.getColumnName(), tval, readOnly);
-			tempObject[tcol.getColumnName()] = fieldInfo;
-			//tempObject[tcol.getColumnName()] = tval;
 			}
-			tempArray.push(tempObject);  // end of record
+
+		var copyStr = "" + tn + " = tempArray";
+		logDebug("ASI Table Array : " + tn + " (" + numrows + " Rows)");
+		eval(copyStr);  // move to table name
 		}
-	  var copyStr = "" + tn + " = tempArray";
-	  logDebug("ASI Table Array : " + tn + " (" + numrows + " Rows)");
-	  eval(copyStr);  // move to table name
-	  }
+
 	}
- 
+
+}
+
  
 function loadASITables4ACA() {
+
  	//
  	// Loads App Specific tables into their own array of arrays.  Creates global array objects
 	//
 	// Optional parameter, cap ID to load from.  If no CAP Id specified, use the capModel
 	//
+
 	var itemCap = capId;
     if (1 == arguments.length) {
         itemCap = arguments[0];
@@ -12869,41 +16615,51 @@ function loadASITables4ACA() {
     }
 }
  
- 
 function loadASITablesBefore() {
+
 	//
 	// Loads App Specific tables into their own array of arrays.  Creates global array objects
 	//
 	//Sometimes "AppSpecificTableGroupModel" is a list
 	var gm = aa.env.getValue("AppSpecificTableGroupModel");
+
 	var gmItem = gm;
+
 	if (gm != null && typeof(gm).size != "undefined" && gm.size() > 0) {
 		gmItem = gm.get(0);
 	} else {
 		gmItem = gm;
 	}
+
 	if (null != gmItem && gmItem != "") {
 		var ta = gmItem.getTablesMap().values();
 		var tai = ta.iterator();
 		while (tai.hasNext()) {
 			var tsm = tai.next();
+
 			if (tsm.rowIndex.isEmpty())
 				continue; // empty table
+
 			var tempObject = new Array();
 			var tempArray = new Array();
 			var tn = tsm.getTableName();
+
 			var numrows = 0;
 			tn = String(tn).replace(/[^a-zA-Z0-9]+/g, '');
+
 			if (!isNaN(tn.substring(0, 1)))
 				tn = "TBL" + tn // prepend with TBL if it starts with a number
+
 					if (!tsm.rowIndex.isEmpty()) {
 						var tsmfldi = tsm.getTableField().iterator();
 						var tsmcoli = tsm.getColumns().iterator();
+
 						var numrows = 1;
 						while (tsmfldi.hasNext()) // cycle through fields
 						{
 							if (!tsmcoli.hasNext()) // cycle through columns
 							{
+
 								var tsmcoli = tsm.getColumns().iterator();
 								tempArray.push(tempObject); // end of record
 								var tempObject = new Array(); // clear the temp obj
@@ -12914,16 +16670,19 @@ function loadASITablesBefore() {
 							var readOnly = 'N';
 							var fieldInfo = new asiTableValObj(tcol.getColumnName(), tval, readOnly);
 							tempObject[tcol.getColumnName()] = fieldInfo;
+
 						}
+
 						tempArray.push(tempObject); // end of record
 					}
+
 					var copyStr = "" + tn + " = tempArray";
 			aa.print("ASI Table Array : " + tn + " (" + numrows + " Rows)");
 			eval(copyStr); // move to table name
 		}
 	}
 } 
- 
+
 function loadFees()  // option CapId
 	{
 	//  load the fees into an array of objects.  Does not
@@ -12942,17 +16701,21 @@ function loadFees()  // option CapId
 		else
 			itemCap = ltcapidstr;
 		}
+
   	var feeArr = new Array();
+
 	var feeResult=aa.fee.getFeeItems(itemCap);
 		if (feeResult.getSuccess())
 			{ var feeObjArr = feeResult.getOutput(); }
 		else
 			{ logDebug( "**ERROR: getting fee items: " + feeResult.getErrorMessage()); return false }
+
 		for (ff in feeObjArr)
 			{
 			fFee = feeObjArr[ff];
 			var myFee = new Fee();
 			var amtPaid = 0;
+
 			var pfResult = aa.finance.getPaymentFeeItems(itemCap, null);
 			if (pfResult.getSuccess())
 				{
@@ -12961,6 +16724,7 @@ function loadFees()  // option CapId
 					if (fFee.getFeeSeqNbr() == pfObj[ij].getFeeSeqNbr())
 						amtPaid+=pfObj[ij].getFeeAllocation()
 				}
+
 			myFee.sequence = fFee.getFeeSeqNbr();
 			myFee.code =  fFee.getFeeCod();
 			myFee.sched = fFee.getF4FeeItemModel().getFeeSchudle();
@@ -12987,12 +16751,16 @@ function loadFees()  // option CapId
 			myFee.calcFlag = fFee.getCalcFlag();;
 			myFee.calcProc = fFee.getFeeCalcProc();
 			myFee.version = fFee.getF4FeeItemModel().getVersion();
+
 			feeArr.push(myFee)
 			}
+
 		return feeArr;
 		}
 
+
 //////////////////
+
 function Fee() // Fee Object
 	{
 	this.sequence = null;
@@ -13025,26 +16793,33 @@ function Fee() // Fee Object
 	this.auditStatus = null; // getAuditStatus()
 	this.version = null; // getVersion()
 	}
+
  
- 
+
 function loadGuideSheetItems(inspId) {
 	//
 	// Returns an associative array of Guide Sheet Items
 	// Optional second parameter, cap ID to load from
 	//
+
 	var retArray = new Array()
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var r = aa.inspection.getInspections(itemCap)
+
 	if (r.getSuccess())
 	 	{
 		var inspArray = r.getOutput();
+
 		for (i in inspArray)
 			{
 			if (inspArray[i].getIdNumber() == inspId)
 				{
 				var inspModel = inspArray[i].getInspection();
+
 				var gs = inspModel.getGuideSheets()
+
 				if (gs)
 					{
 					gsArray = gs.toArray();
@@ -13060,10 +16835,10 @@ function loadGuideSheetItems(inspId) {
 				} // if this is the right inspection
 			} // for each inspection
 		} // if there are inspections
+
 	logDebug("loaded " + retArray.length + " guidesheet items");
 	return retArray;
 	}
- 
  
 function loadParcelAttributes(thisArr) {
 	//
@@ -13073,6 +16848,7 @@ function loadParcelAttributes(thisArr) {
 	
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
 	var fcapParcelObj = null;
    	var capParcelResult = aa.parcel.getParcelandAttribute(itemCap, null);
    	if (capParcelResult.getSuccess())
@@ -13086,9 +16862,11 @@ function loadParcelAttributes(thisArr) {
 		if (fcapParcelObj[i].getParcelArea()){
 				parcelArea += parseFloat(fcapParcelObj[i].getParcelArea());
 		}
+
   		parcelAttrObj = fcapParcelObj[i].getParcelAttribute().toArray();
   		for (z in parcelAttrObj)
 			thisArr["ParcelAttribute." + parcelAttrObj[z].getB1AttributeName()]=parcelAttrObj[z].getB1AttributeValue();
+
 		// Explicitly load some standard values
 		thisArr["ParcelAttribute.Block"] = fcapParcelObj[i].getBlock();
 		thisArr["ParcelAttribute.Book"] = fcapParcelObj[i].getBook();
@@ -13109,7 +16887,6 @@ function loadParcelAttributes(thisArr) {
   		}
 	}
  
- 
 function loadTasks(ltcapidstr)
 	{
 	if (typeof(ltcapidstr) == "string")
@@ -13122,12 +16899,15 @@ function loadTasks(ltcapidstr)
                 }
 	else
 		ltCapId = ltcapidstr;
+
   	var taskArr = new Array();
+
 	var workflowResult = aa.workflow.getTasks(ltCapId);
 	if (workflowResult.getSuccess())
 		wfObj = workflowResult.getOutput();
 	else
 		{ logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage()); return false; }
+
 	for (i in wfObj)
 		{
 		fTask = wfObj[i];
@@ -13145,6 +16925,7 @@ function loadTasks(ltcapidstr)
 	return taskArr;
 	}
 
+
 function Task() // Task Object
 	{
 	this.status = null
@@ -13158,7 +16939,7 @@ function Task() // Task Object
 	}
 	
 
- 
+
  
 function loadTaskSpecific(thisArr) 
 	{
@@ -13170,6 +16951,7 @@ function loadTaskSpecific(thisArr)
 	
 	var itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
+
  	var workflowResult = aa.workflow.getTasks(itemCap);
  	if (workflowResult.getSuccess())
  		var wfObj = workflowResult.getOutput();
@@ -13196,7 +16978,6 @@ function loadTaskSpecific(thisArr)
  		}
 	}
  
- 
 function logDebug(dstr) {
 	vLevel = 1
 	if (arguments.length > 1)
@@ -13207,18 +16988,19 @@ function logDebug(dstr) {
 		aa.debug(aa.getServiceProviderCode() + " : " + aa.env.getValue("CurrentUserID"), dstr);
 }
  
- 
+
 function logGlobals(globArray) {
+
 	for (loopGlob in globArray)
 		logDebug("{" + loopGlob + "} = " + globArray[loopGlob])
 	}
+
  
- 
+
 function logMessage(dstr)
 	{
 	message+=dstr + br;
 	}
- 
  
 function lookup(stdChoice,stdValue) 
 	{
@@ -13237,12 +17019,13 @@ function lookup(stdChoice,stdValue)
 		}
 	return strControl;
 	}
- 
+
  
 function lookupDateRange(stdChoiceEntry,dateValue) // optional val number 
 	{
 	var valNumber = 1;
 	if (arguments.length == 3) valNumber = arguments[2];
+
 	var compDate = new Date(dateValue);
 	var domArr
 	for (var count=1; count <= 9999; count++)  // Must be sequential from 01 up to 9999
@@ -13275,11 +17058,11 @@ function lookupDateRange(stdChoiceEntry,dateValue) // optional val number
 		}
 	}	
  
- 
 function lookupFeesByValuation(stdChoiceEntry,stdChoiceValue,capval) // optional arg number 
 	{
 	var valNumber = 1;
 	if (arguments.length == 4) valNumber = arguments[3];
+
 	var saveVal ; 
 	var lookupStr = lookup(stdChoiceEntry,stdChoiceValue);
 	
@@ -13306,12 +17089,13 @@ function lookupFeesByValuation(stdChoiceEntry,stdChoiceValue,capval) // optional
 	return saveVal;
 	}
 
- 
+
  
 function lookupFeesByValuationSlidingScale(stdChoiceEntry,stdChoiceValue,capval) // optional arg number 
 	{
 	var valNumber = 2;
 	if (arguments.length == 4) valNumber = (arguments[3] + 1);
+
 	var saveVal ; 
 	var lookupStr = lookup(stdChoiceEntry,stdChoiceValue);
 	
@@ -13340,7 +17124,7 @@ function lookupFeesByValuationSlidingScale(stdChoiceEntry,stdChoiceValue,capval)
 		}
 	return saveVal;
 	}
- 
+
  
 function loopTask(wfstr, wfstat, wfcomment, wfnote) // optional process name
 {
@@ -13350,6 +17134,7 @@ function loopTask(wfstr, wfstat, wfcomment, wfnote) // optional process name
 		processName = arguments[4]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -13357,26 +17142,30 @@ function loopTask(wfstr, wfstat, wfcomment, wfnote) // optional process name
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	if (!wfstat)
 		wfstat = "NA";
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var dispositionDate = aa.date.getCurrentDate();
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
+
 			if (useProcess)
 				aa.workflow.handleDisposition(capId, stepnumber, processID, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, "L");
 			else
 				aa.workflow.handleDisposition(capId, stepnumber, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, "L");
+
 			logMessage("Closing Workflow Task: " + wfstr + " with status " + wfstat + ", Looping...");
 			logDebug("Closing Workflow Task: " + wfstr + " with status " + wfstat + ", Looping...");
 		}
 	}
 } 
- 
 function lpSet(desiredSetId) {
 	this.refresh = function () {
+
 		var theSet = aa.set.getSetByPK(this.id).getOutput();
 		this.status = theSet.getSetStatus();
 		this.setId = theSet.getSetID();
@@ -13384,7 +17173,9 @@ function lpSet(desiredSetId) {
 		this.comment = theSet.getSetComment();
 		this.model = theSet.getSetHeaderModel();
 		this.statusComment = theSet.getSetStatusComment();
+
 		var memberResult = aa.set.getLPSetMembersByPK(this.id);
+
 		if (!memberResult.getSuccess()) {
 			logDebug("**WARNING** error retrieving set members " + memberResult.getErrorMessage());
 		} else {
@@ -13396,13 +17187,16 @@ function lpSet(desiredSetId) {
 			logDebug("lpSet: loaded set " + this.id + " of status " + this.status + " with " + this.size + " records");
 		}
 	}
+
 	this.add = function (addLicNum) {
 		var setMemberStatus;
 		if (arguments.length == 2)
 			setMemberStatus = arguments[1];
+
 		try {
 			var addLic = getRefLicenseProf(addLicNum);
 			var addResult = aa.set.addLPSetMember(this.id, addLic.licSeqNbr);
+
 			if (!addResult.getSuccess()) {
 				logDebug("**WARNING** error removing license from set " + this.id + " : " + addResult.getErrorMessage());
 			} else {
@@ -13411,7 +17205,9 @@ function lpSet(desiredSetId) {
 		} catch (err) {
 			logDebug("**ERROR** error adding license from set " + this.id + " : " + err.message);
 		}
+
 	}
+
 	this.remove = function (removeLicNum) {
 		try {
 			var removeLic = getRefLicenseProf(removeLicNum);
@@ -13425,6 +17221,7 @@ function lpSet(desiredSetId) {
 			logDebug("**ERROR** error removing license from set " + this.id + " : " + err.message);
 		}
 	}
+
 	this.update = function () {
 		var sh = aa.proxyInvoker.newInstance("com.accela.aa.aamain.cap.SetBusiness").getOutput();
 		this.model.setSetStatus(this.status)
@@ -13433,30 +17230,37 @@ function lpSet(desiredSetId) {
 		this.model.setSetComment(this.comment);
 		this.model.setSetStatusComment(this.statusComment);
 		this.model.setRecordSetType(this.type);
+
 		logDebug("lpSet: updating set header information");
 		try {
 			updateResult = sh.updateSetBySetID(this.model);
 		} catch (err) {
 			logDebug("**WARNING** error updating set header failed " + err.message);
 		}
+
 	}
+
 	this.id = desiredSetId;
 	this.name = desiredSetId;
 	this.type = null;
 	this.comment = null;
+
 	if (arguments.length > 1 && arguments[1])
 		this.name = arguments[1];
 	if (arguments.length > 2 && arguments[2])
 		this.type = arguments[2];
 	if (arguments.length > 3 && arguments[3])
 		this.comment = arguments[3];
+
 	this.size = 0;
 	this.empty = true;
 	this.members = new Array();
 	this.status = "";
 	this.statusComment = "";
 	this.model = null;
+
 	var theSetResult = aa.set.getSetByPK(this.id);
+
 	if (theSetResult.getSuccess()) {
 		this.refresh();
 	} else // add the set
@@ -13469,9 +17273,10 @@ function lpSet(desiredSetId) {
 			this.refresh();
 		}
 	}
+
 }
  
- 
+
 //
 // matches:  returns true if value matches any of the following arguments
 //
@@ -13483,7 +17288,6 @@ function matches(eVal, argList) {
 	}
 	return false;
 } 
- 
 function nextWorkDay(td)   
 	// uses app server to return the next work day.
 	// Only available in 6.3.2
@@ -13494,6 +17298,7 @@ function nextWorkDay(td)
 		dDate = new Date(aa.util.now());
 	else
 		dDate = convertDate(td);
+
 	if (!aa.calendar.getNextWorkDay)
 		{
 		logDebug("getNextWorkDay function is only available in Accela Automation 6.3.2 or higher.");
@@ -13502,10 +17307,11 @@ function nextWorkDay(td)
 		{
 		var dDate = new Date(aa.calendar.getNextWorkDay(aa.date.parseDate(dDate.getMonth()+1 + "/" + dDate.getDate() + "/" + dDate.getFullYear())).getOutput().getTime());
 		}
+
 	return (dDate.getMonth()+1) + "/" + dDate.getDate() + "/" + dDate.getFullYear();;
 	}
 
- 
+
  
 function openUrlInNewWindow(myurl)
  {
@@ -13518,7 +17324,7 @@ function openUrlInNewWindow(myurl)
  
  comment(newurl)
  }
- 
+
  
 function pairObj(actID) {
 	this.ID = actID;
@@ -13528,6 +17334,7 @@ function pairObj(actID) {
 	this.enabled = true;
 	this.continuation = false;
 	this.branch = new Array();
+
 	this.load = function (loadStr) {
 		//
 		// load() : tokenizes and loades the criteria and action
@@ -13539,8 +17346,10 @@ function pairObj(actID) {
 			this.cri = loadArr[0];
 			this.act = loadArr[1];
 			this.elseact = loadArr[2];
+
 			if (this.cri.length() == 0)
 				this.continuation = true; // if format is like ("^action...") then it's a continuation of previous line
+
 			var a = loadArr[1];
 			var bb = a.indexOf("branch(");
 			while (!enableVariableBranching && bb >= 0) {
@@ -13553,15 +17362,16 @@ function pairObj(actID) {
 				a = cc.substring(dd);
 				bb = a.indexOf("branch(");
 			}
+
 		}
 	}
 } 
- 
 function parcelConditionExists(condtype)
 	{
 	var capParcelResult = aa.parcel.getParcelandAttribute(capId,null);
 	if (!capParcelResult.getSuccess())
 		{ logDebug("**WARNING: error getting cap parcels : " + capParcelResult.getErrorMessage()) ; return false }
+
 	var Parcels = capParcelResult.getOutput().toArray();
 	for (zz in Parcels)
 		{
@@ -13573,27 +17383,30 @@ function parcelConditionExists(condtype)
 			if (pcs[pc1].getConditionType().equals(condtype)) return true;
 		}
 	}
- 
+
  
 function parcelExistsOnCap()
 {
 	// Optional parameter, cap ID to load from
 	//
+
 	var itemCap = capId;
 	if (arguments.length == 1) itemCap = arguments[0]; // use cap ID specified in args
+
 	var fcapParcelObj = null;
 	var capParcelResult = aa.parcel.getParcelandAttribute(itemCap, null);
 	if (capParcelResult.getSuccess())
 		var fcapParcelObj = capParcelResult.getOutput().toArray();
 	else
 		{ logDebug("**ERROR: Failed to get Parcel object: " + capParcelResult.getErrorType() + ":" + capParcelResult.getErrorMessage()); return false; }
+
 	for (i in fcapParcelObj)
 	{
 		return true;
 	}
+
 	return false;
 }
- 
  
 function paymentByTrustAccount(fSeqNbr) //optional: itemCap
   {
@@ -13605,6 +17418,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	// if any of the above fails returns false, otherwise will return true.
 	// fee must be invoiced for function to work, use optional capId parameter with addFee() call to ensure fee is invoiced prior to this function being called.
 	// 06/08/2011 - Joseph Cipriano - Truepoint Solutions: Made revision to function.  Alter call to pull Primary Trust Account on Cap to use method aa.trustAccount.getPrimaryTrustAccountByCAP().
+
         feeSeqNbr = fSeqNbr;
 	itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
@@ -13656,11 +17470,13 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 		logDebug("Error: could not retrieve invoice list: " + iListResult.getErrorMessage());
 		return false;
 	  }
+
 	
 	//retrieve trust account
 	//will likely need more logic here to select correct trust account
 	//will select first account found on cap
         var tPAcctResult = aa.trustAccount.getPrimaryTrustAccountByCAP(itemCap);
+
 	if (tPAcctResult.getSuccess())
 	  {
 		tAccountID = tPAcctResult.getOutput().getAcctID();
@@ -13694,6 +17510,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 			comment("Trust Account ID: " + tAcct.getAcctID());  
 			logDebug("Trust Account Balance: " + tAcct.getAcctBalance());
 		  }
+
 	  }
 	else
 	  {
@@ -13754,6 +17571,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	
 	feeAllocArray = new Array();
 	feeAllocArray.push(feeAmount);
+
 	applyResult = aa.finance.applyPayment(itemCap,pR.getPaymentSeqNbr(),feeAmount,feeSeqNbrArray,invNbrArray,feeAllocArray,aa.date.getCurrentDate(),"Paid","Paid",pR.getCashierID(),null);
 		
 	if (applyResult.getSuccess()) 
@@ -13771,6 +17589,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	
 	//generate receipt
 	receiptResult = aa.finance.generateReceipt(itemCap,aa.date.getCurrentDate(),pR.getPaymentSeqNbr(),pR.getCashierID(),null);
+
 	if (receiptResult.getSuccess())
 	  {
 		receipt = receiptResult.getOutput();
@@ -13785,7 +17604,6 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	 //everything committed successfully
 	 return true;
   } 
- 
 function paymentByTrustAccount(fSeqNbr) //optional: itemCap
   {
 	// function  performs the following:
@@ -13796,6 +17614,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	// if any of the above fails returns false, otherwise will return true.
 	// fee must be invoiced for function to work, use optional capId parameter with addFee() call to ensure fee is invoiced prior to this function being called.
 	// 06/08/2011 - Joseph Cipriano - Truepoint Solutions: Made revision to function.  Alter call to pull Primary Trust Account on Cap to use method aa.trustAccount.getPrimaryTrustAccountByCAP().
+
         feeSeqNbr = fSeqNbr;
 	itemCap = capId;
 	if (arguments.length == 2) itemCap = arguments[1]; // use cap ID specified in args
@@ -13816,6 +17635,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 		return false;
 		}
         */
+
 	//get fee details
 	//retrieve a list of invoices by capID
 	iListResult = aa.finance.getInvoiceByCapID(itemCap,null);
@@ -13852,11 +17672,13 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 		logDebug("Error: could not retrieve invoice list: " + iListResult.getErrorMessage());
 		return false;
 	  }
+
 	
 	//retrieve trust account
 	//will likely need more logic here to select correct trust account
 	//will select first account found on cap
         var tPAcctResult = aa.trustAccount.getPrimaryTrustAccountByCAP(itemCap);
+
 	if (tPAcctResult.getSuccess())
 	  {
 		tAccountID = tPAcctResult.getOutput().getAcctID();
@@ -13890,6 +17712,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 			comment("Trust Account ID: " + tAcct.getAcctID());  
 			logDebug("Trust Account Balance: " + tAcct.getAcctBalance());
 		  }
+
 	  }
 	else
 	  {
@@ -13950,6 +17773,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	
 	feeAllocArray = new Array();
 	feeAllocArray.push(feeAmount);
+
 	applyResult = aa.finance.applyPayment(itemCap,pR.getPaymentSeqNbr(),feeAmount,feeSeqNbrArray,invNbrArray,feeAllocArray,aa.date.getCurrentDate(),"Paid","Paid",pR.getCashierID(),null);
 		
 	if (applyResult.getSuccess()) 
@@ -13967,6 +17791,7 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	
 	//generate receipt
 	receiptResult = aa.finance.generateReceipt(itemCap,aa.date.getCurrentDate(),pR.getPaymentSeqNbr(),pR.getCashierID(),null);
+
 	if (receiptResult.getSuccess())
 	  {
 		receipt = receiptResult.getOutput();
@@ -13981,7 +17806,6 @@ function paymentByTrustAccount(fSeqNbr) //optional: itemCap
 	 //everything committed successfully
 	 return true;
   } 
- 
 function paymentGetNotAppliedTot() //gets total Amount Not Applied on current CAP
 	{
 	var amtResult = aa.cashier.getSumNotAllocated(capId);
@@ -13998,7 +17822,7 @@ function paymentGetNotAppliedTot() //gets total Amount Not Applied on current CA
 		}
 	return false;
 	}
- 
+
  
 /**
  * Pops and deletes value from standard choice queue
@@ -14011,16 +17835,18 @@ function popCache(keyVal, cacheStore) {
     if (bdv) {
         lu = String(bdv.getDescription());
     }
+
     if (bdv) {
         var bz = new com.accela.aa.aamain.systemConfig.BizDomainBusiness();
         bz.deleteBizDomianValue(aa.getServiceProviderCode(), cacheStore, keyVal);
     }
     return lu;
 } 
- 
 function prepareRenewal() {
+
     if (isRenewProcess(parentCapId, capId)) {
         logDebug("CAPID(" + parentCapId + ") is ready for renew. PartialCap (" + capId + ")");
+
         //Associate partial cap with parent CAP.
         var result = aa.cap.createRenewalCap(parentCapId, capId, true);
         if (result.getSuccess()) {
@@ -14029,20 +17855,22 @@ function prepareRenewal() {
         }
         else
         { logDebug("ERROR: Associate partial cap with parent CAP. " + result.getErrorMessage()); return false };
+
         return true;
     }
     else
     { logDebug("Renewal Process did not finish properly"); return false; }
 }
  
- 
 function proximity(svc,layer,numDistance)  // optional: distanceType
 	{
 	// returns true if the app has a gis object in proximity
 	// use with all events except ApplicationSubmitBefore
 	// 6/20/07 JHS - Changed errors to Warnings in case GIS server unavailable.
+
 	var distanceType = "feet"
 	if (arguments.length == 4) distanceType = arguments[3]; // use distance type in arg list
+
 	var bufferTargetResult = aa.gis.getGISType(svc,layer); // get the buffer target
 	if (bufferTargetResult.getSuccess())
 		{
@@ -14051,18 +17879,22 @@ function proximity(svc,layer,numDistance)  // optional: distanceType
 		}
 	else
 		{ logDebug("**WARNING: Getting GIS Type for Buffer Target.  Reason is: " + bufferTargetResult.getErrorType() + ":" + bufferTargetResult.getErrorMessage()) ; return false }
+
 	var gisObjResult = aa.gis.getCapGISObjects(capId); // get gis objects on the cap
 	if (gisObjResult.getSuccess())
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ logDebug("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap
 		{
 		var bufchk = aa.gis.getBufferByRadius(fGisObj[a1], numDistance, distanceType, buf);
+
 		if (bufchk.getSuccess())
 			var proxArr = bufchk.getOutput();
 		else
 			{ logDebug("**WARNING: Retrieving Buffer Check Results.  Reason is: " + bufchk.getErrorType() + ":" + bufchk.getErrorMessage()) ; return false }
+
 		for (a2 in proxArr)
 			{
 			var proxObj = proxArr[a2].getGISObjects();  // if there are GIS Objects here, we're done
@@ -14073,7 +17905,7 @@ function proximity(svc,layer,numDistance)  // optional: distanceType
 			}
 		}
 	}
- 
+
  
 function proximityToAttribute(svc,layer,numDistance,distanceType,attributeName,attributeValue)
 	{
@@ -14081,6 +17913,7 @@ function proximityToAttribute(svc,layer,numDistance,distanceType,attributeName,a
 	// use with all events except ApplicationSubmitBefore
 	// example usage:
 	// 01 proximityToAttribute("flagstaff","Parcels","50","feet","BOOK","107") ^ DoStuff...
+
 	var bufferTargetResult = aa.gis.getGISType(svc,layer); // get the buffer target
 	if (bufferTargetResult.getSuccess())
 		{
@@ -14095,9 +17928,11 @@ function proximityToAttribute(svc,layer,numDistance,distanceType,attributeName,a
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ logDebug("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap
 		{
 		var bufchk = aa.gis.getBufferByRadius(fGisObj[a1], numDistance, distanceType, buf);
+
 		if (bufchk.getSuccess())
 			var proxArr = bufchk.getOutput();
 		else
@@ -14118,7 +17953,7 @@ function proximityToAttribute(svc,layer,numDistance,distanceType,attributeName,a
 			}
 		}
 	}
- 
+
  
 /**
  * pushes to a caching standard choice
@@ -14139,7 +17974,6 @@ function pushCache(keyVal, keyData, cacheStore, override) {
     }
     return isCached;
 } 
- 
 /**
  * Recalcs fees
  * @param itemCap {capIdModel}
@@ -14164,20 +17998,24 @@ function recalcFees(itemCap){
 	
 	return res.getSuccess();
 }
- 
+
  
 function refLicProfGetAttribute(pLicNum, pAttributeName)
 	{
 	//Gets value of custom attribute from reference license prof record
 	//07SSP-00033/SP5014
+
 	//validate parameter values
 	if (pLicNum==null || pLicNum.length==0 || pAttributeName==null || pAttributeName.length==0)
 		{
 		logDebug("Invalid license number or attribute name parameter");
 		return ("INVALID PARAMETER");
 		}
+
 	//get reference License Professional record
+
 	var newLic = getRefLicenseProf(pLicNum)
+
 	//get reference License Professional's license seq num
 	var licSeqNum = 0;
 	var attributeType = "";
@@ -14193,6 +18031,7 @@ function refLicProfGetAttribute(pLicNum, pAttributeName)
 		logDebug("No reference licensed professional found with state license number of "+pLicNum);
 		return ("NO LICENSE FOUND");
 		}
+
 	//get ref Lic Prof custom attribute using license seq num & attribute type
 	if ( !(licSeqNum==0 || licSeqNum==null || attributeType=="" || attributeType==null) )
 		{
@@ -14202,6 +18041,7 @@ function refLicProfGetAttribute(pLicNum, pAttributeName)
 			logDebug("**ERROR retrieving reference license professional attribute: " + peopAttrResult.getErrorMessage());
 			return false;
 			}
+
 		var peopAttrArray = peopAttrResult.getOutput();
 		if (peopAttrArray)
 			{
@@ -14229,7 +18069,6 @@ function refLicProfGetAttribute(pLicNum, pAttributeName)
 		}
 	}
  
- 
 function refLicProfGetDate (pLicNum, pDateType)
 	{
 	//Returns expiration date from reference licensed professional record.  Skips disabled reference licensed professionals.
@@ -14245,15 +18084,19 @@ function refLicProfGetDate (pLicNum, pDateType)
 		if ( !(dateType=="ISSUE" || dateType=="RENEW" || dateType=="BUSINESS" || dateType=="INSURANCE") )
 			dateType = "EXPIRE";
 		}
+
 	if (pLicNum==null || pLicNum=="")
 		{
 		logDebug("Invalid license number parameter");
 		return ("INVALID PARAMETER");
 		}
+
 	var newLic = getRefLicenseProf(pLicNum)
+
 	if (newLic)
 		{
 		var jsExpDate = new Date(aa.util.now());
+
  		if (dateType=="EXPIRE")
 			{
 			if (newLic.getLicenseExpirationDate())
@@ -14328,7 +18171,7 @@ function refLicProfGetDate (pLicNum, pDateType)
 			return ("NO DATE FOUND");
 		}
 	}
- 
+
  
 function removeAllFees(itemCap) // Removes all non-invoiced fee items for a CAP ID
 {
@@ -14338,6 +18181,7 @@ function removeAllFees(itemCap) // Removes all non-invoiced fee items for a CAP 
 		for (feeNum in feeList) {
 			if (feeList[feeNum].getFeeitemStatus().equals("NEW")) {
 				var feeSeq = feeList[feeNum].getFeeSeqNbr();
+
 				var editResult = aa.finance.removeFeeItem(itemCap, feeSeq);
 				if (editResult.getSuccess()) {
 					logDebug("Removed existing Fee Item: " + feeList[feeNum].getFeeCod());
@@ -14353,8 +18197,8 @@ function removeAllFees(itemCap) // Removes all non-invoiced fee items for a CAP 
 	} else {
 		logDebug("**ERROR: getting fee items (" + feeList[feeNum].getFeeCod() + "): " + getFeeResult.getErrorMessage())
 	}
+
 } 
- 
 	function removeASITable(tableName) // optional capId
   	{
 	//  tableName is the name of the ASI table
@@ -14362,81 +18206,126 @@ function removeAllFees(itemCap) // Removes all non-invoiced fee items for a CAP 
   	var itemCap = capId
 	if (arguments.length > 1)
 		itemCap = arguments[1]; // use cap ID specified in args
+
 	var tssmResult = aa.appSpecificTableScript.removeAppSpecificTableInfos(tableName,itemCap,currentUserID)
+
 	if (!tssmResult.getSuccess())
 		{ aa.print("**WARNING: error removing ASI table " + tableName + " " + tssmResult.getErrorMessage()) ; return false }
         else
 	logDebug("Successfully removed all rows from ASI Table: " + tableName);
+
 	}
- 
+
  
 //@ts-check
+
 function removeCapCondition(cType, cDesc) {
 	var capCondResult;
 	var ccs;
+	var condAppliedOnly= false;
+	var condRemoved =false;
+	
 	if (typeof cType !== 'string') {
 		logDebug("removeCapCondition(): The condition type parameter is the wrong data type.");
 		return false;
 	}
+
 	if (typeof cDesc !== 'string') {
 		logDebug("removeCapCondition(): The condition name or description parameter is the wrong data type.");
 		return false;
 	}
+
 	//if we get this far, the capId isn't null and is the right type of class
 	var itemCap = capId;
+
 	//if the arguments are more than the required two parameters, use the first argument as the capId
 	if (arguments.length > 2) {
 		logDebug("removeCapCondition(): Using passed in capId object: " + arguments[2]);
 		itemCap = arguments[2];
 	}
+
 	//test for undefined and null on capId object
 	if (typeof itemCap === 'undefined' || itemCap == null) {
 		logDebug("removeCapCondition(): capId environment variable is undefined or null.");
 		return false;
 	}
+
 	//test that the capId object is the right class
 	if (itemCap.class != 'class com.accela.aa.aamain.cap.CapIDModel') {
 		logDebug("removeCapCondition(): capId object is " + itemCap.class + " and it needs to be class com.accela.aa.aamain.cap.CapIDModel.");
 		return false;
 	}
+	
+	if (arguments.length > 3) {
+		if(typeof arguments[3] == 'boolean')
+			{
+			condAppliedOnly = arguments[3]; 
+			logDebug("removeCapCondition(): check condition applied status: " + condAppliedOnly);
+			}
+	}
+
 	//get the conditions for the capId object. Throw an error and log it if there is a problem.
 	try {
 		capCondResult = aa.capCondition.getCapConditions(itemCap, cType);
 	} catch (err) {
 		logDebug("removeCapCondition(): **ERROR** Unable to get cap conditions: " + err.message);
 	}
+
 	//if the transaction was not successful, throw an error and log it.
 	if (!capCondResult.getSuccess()) {
 		logDebug("removeCapCondition(): **ERROR** error getting cap conditions : " + capCondResult.getErrorMessage());
 		return false;
 	}
 
+
 	//if there is output, set the variable and continue. Otherwise, log error and return.
 	if (!capCondResult.getOutput()) {
 		logDebug("removeCapCondition(): **ERROR** no output from retrieving the cap conditions.");
 		return false;
 	}
+
 	ccs = capCondResult.getOutput();
 	logDebug("removeCapCondition(): number of matching conditions on the capId object: " + ccs.length);
+
 	for (var pc1 in ccs) {
-		if (ccs[pc1].getConditionDescription().equals(cDesc)) {
+		if (ccs[pc1].getConditionDescription().equals(cDesc) && (!condAppliedOnly || ccs[pc1].getConditionStatusType() == "Applied" )) 
+		{
 			var rmCapCondResult;
 			try {
-				rmCapCondResult = aa.capCondition.deleteCapCondition(itemCap, ccs[pc1].getConditionNumber());
+				ccs[pc1].setConditionStatusType("Not Applied"); 
+				ccs[pc1].setConditionStatus("Not Applied"); 
+				var updateCondStatus = aa.capCondition.editCapCondition(ccs[pc1]); 
+				if(updateCondStatus.getSuccess())
+					{
+					logDebug("removeCapCondition(): Successfully updated condition status to 'Not Applied' from CAP: " + itemCap + "  (" + cType + ") " + cDesc);
+					rmCapCondResult = aa.capCondition.deleteCapCondition(itemCap, ccs[pc1].getConditionNumber());
+					if (rmCapCondResult.getSuccess()) {
+						logDebug("removeCapCondition(): Successfully removed condition from CAP: " + itemCap + "  (" + cType + ") " + cDesc);
+						condRemoved=true;
+					} else {
+						logDebug("removeCapCondition(): **ERROR** unable to remove condition from CAP: " + itemCap + "  (" + cType + "): " + rmCapCondResult.getErrorMessage());
+						condRemoved=false;
+						   }
+					}
+				else
+					{
+					logDebug("removeCapCondition(): **ERROR** unable to update condition status to 'Not Applied' from CAP: " + itemCap + "  (" + cType + "): " + updateCondStatus.getErrorMessage());
+					}	
+				
 			} catch (err) {
 				logDebug("removeCapCondition(): **ERROR** unable to delete the condition from the cap: " + err.message);
 			}
-			if (rmCapCondResult.getSuccess()) {
-				logDebug("removeCapCondition(): Successfully removed condition from CAP: " + itemCap + "  (" + cType + ") " + cDesc);
-				return true;
-			} else {
-				logDebug("removeCapCondition(): **ERROR** unable to remove condition from CAP: " + itemCap + "  (" + cType + "): " + rmCapCondResult.getErrorMessage());
-				return false;
-			}
+			
 		}
+		else
+			{
+			logDebug("removeCapCondition(): Condition cap " + itemCap + "  (" + cType + ") " + ccs[pc1].getConditionDescription() +" is not match with the condition description or status");
+			}
 	}
+	return condRemoved;
 }
- 
+
+
  
 function removeFee(fcode, fperiod) // Removes all fee items for a fee code and period
 {
@@ -14446,6 +18335,7 @@ function removeFee(fcode, fperiod) // Removes all fee items for a fee code and p
 		for (feeNum in feeList) {
 			if (feeList[feeNum].getFeeitemStatus().equals("NEW")) {
 				var feeSeq = feeList[feeNum].getFeeSeqNbr();
+
 				var editResult = aa.finance.removeFeeItem(capId, feeSeq);
 				if (editResult.getSuccess()) {
 					logDebug("Removed existing Fee Item: " + fcode);
@@ -14461,8 +18351,8 @@ function removeFee(fcode, fperiod) // Removes all fee items for a fee code and p
 	} else {
 		logDebug("**ERROR: getting fee items (" + fcode + "): " + getFeeResult.getErrorMessage())
 	}
+
 } 
- 
 function removeParcelCondition(parcelNum,cType,cDesc)
 //if parcelNum is null, condition is added to all parcels on CAP
 	{
@@ -14513,9 +18403,10 @@ function removeParcelCondition(parcelNum,cType,cDesc)
 			}
 		}
 	}
- 
+
  
 function removeRefContactAddressFromRecordContact(itemCap,cSeqNumber,rConAddrModel) {
+
 	if (itemCap && cSeqNumber && rConAddrModel) {
 		var xRefContactAddress = aa.address.createXRefContactAddressModel().getOutput();
 		xRefContactAddress.setCapID(itemCap);
@@ -14525,6 +18416,7 @@ function removeRefContactAddressFromRecordContact(itemCap,cSeqNumber,rConAddrMod
 		xRefContactAddress.setEntityType(rConAddrModel.getEntityType());
 		// Create
 		var xrefResult = aa.address.deleteXRefContactAddress(xRefContactAddress.getXRefContactAddressModel());
+
 		if (xrefResult.getSuccess) {
 			logDebug("Successfully removed reference contact address to cap contact: " + cSeqNumber);
 			return true;
@@ -14532,12 +18424,13 @@ function removeRefContactAddressFromRecordContact(itemCap,cSeqNumber,rConAddrMod
 			logDebug("Failed to remove reference contact address to cap: " + xrefResult.getErrorMessage());
 			return false;
 		}
+
 	} else {
 		logDebug("Could not remove reference contact address no address model, capId or cap contact sequence number");
 		return false;		
 	}
+
 } 
- 
 function removeTask(targetCapId, removeTaskName) // optional process name
 {
 	var useProcess = false;
@@ -14546,6 +18439,7 @@ function removeTask(targetCapId, removeTaskName) // optional process name
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 	}
+
 	//
 	// Get the target Task
 	//
@@ -14556,26 +18450,31 @@ function removeTask(targetCapId, removeTaskName) // optional process name
 		logDebug("**WARNING: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	var tTask = null;
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(removeTaskName.toUpperCase()) && (!useProcess || fTask.getProcessCode().toUpperCase().equals(processName.toUpperCase()))) {
 			tTask = wfObj[i];
 		}
 	}
+
 	if (!tTask) {
 		logDebug("**WARNING: Task to remove not found: " + removeTaskName);
 		return false;
 	}
+
 	var result = aa.workflow.removeTask(tTask)
+
 		if (!result.getSuccess()) {
 			logDebug("**WARNING: error removing task " + result.getErrorMessage());
 			return false;
 		} else {
 			logDebug("Removed task " + tTask.getTaskDescription());
 		}
+
 }
- 
  
 function replaceMessageTokens(m)
 	{
@@ -14587,38 +18486,45 @@ function replaceMessageTokens(m)
 	//  e.g.   {Expiration Date}  or  {Number of Electrical Outlets}
 	//
 	//  e.g.   m = "Your recent license application (|capIdString|) has successfully passed |wfTask| with a status of |wfStatus|"
+
 	while (m.indexOf("|"))
 	  {
 	  var s = m.indexOf("|")
 	  var e = m.indexOf("|",s+1)
 	  if (e <= 0) break; // unmatched
 	  var r = m.substring(s+1,e)
+
 	  var evalstring = "typeof(" + r + ") != \"undefined\" ? " + r + " : \"undefined\""
 	  var v = eval(evalstring)
 	  var pattern = new RegExp("\\|" + r + "\\|","g")
 	  m = String(m).replace(pattern,v)
 	  }
+
 	while (m.indexOf("{"))
 	  {
 	  var s = m.indexOf("{")
 	  var e = m.indexOf("}",s+1)
 	  if (e <= 0) break; // unmatched
 	  var r = m.substring(s+1,e)
+
 	  var evalstring = "AInfo[\"" + r + "\"]"
 	  var v = eval(evalstring)
 	  var pattern = new RegExp("\\{" + r + "\\}","g")
 	  m = String(m).replace(pattern,v)
+
 	  }
+
 	 return m
 	 }
  
- 
+
 
 function replaceNode(fString,fName,fContents)
 	{
 	 var fValue = "";
 	var startTag = "<"+fName+">";
 	 var endTag = "</"+fName+">";
+
 		 startPos = fString.indexOf(startTag) + startTag.length;
 		 endPos = fString.indexOf(endTag);
 		 // make sure startPos and endPos are valid before using them
@@ -14627,14 +18533,16 @@ function replaceNode(fString,fName,fContents)
 				  fValue = fString.substring(0,startPos) + fContents + fString.substring(endPos);
  					return unescape(fValue);
 			}
+
 	}
- 
+
  
 function resultInspection(inspType, inspStatus, resultDate, resultComment) //optional capId
 {
 	var itemCap = capId
 		if (arguments.length > 4)
 			itemCap = arguments[4]; // use cap ID specified in args
+
 		var foundID;
 	var inspResultObj = aa.inspection.getInspections(itemCap);
 	if (inspResultObj.getSuccess()) {
@@ -14643,8 +18551,10 @@ function resultInspection(inspType, inspStatus, resultDate, resultComment) //opt
 			if (String(inspType).equals(inspList[xx].getInspectionType()) && inspList[xx].getInspectionStatus().toUpperCase().equals("SCHEDULED"))
 				foundID = inspList[xx].getIdNumber();
 	}
+
 	if (foundID) {
 		resultResult = aa.inspection.resultInspection(itemCap, foundID, inspStatus, resultDate, resultComment, currentUserID)
+
 			if (resultResult.getSuccess()) {
 				logDebug("Successfully resulted inspection: " + inspType + " to Status: " + inspStatus)
 			} else {
@@ -14653,8 +18563,8 @@ function resultInspection(inspType, inspStatus, resultDate, resultComment) //opt
 	} else {
 		logDebug("Could not result inspection : " + inspType + ", not scheduled");
 	}
+
 }
- 
  
 /**
  * results workflow task and sets the status and performs next step based on configured status
@@ -14672,6 +18582,7 @@ function resultWorkflowTask(wfstr, wfstat, wfcomment, wfnote) // optional proces
 		processName = arguments[4]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -14679,8 +18590,10 @@ function resultWorkflowTask(wfstr, wfstat, wfcomment, wfnote) // optional proces
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	if (!wfstat)
 		wfstat = "NA";
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
@@ -14692,22 +18605,25 @@ function resultWorkflowTask(wfstr, wfstat, wfcomment, wfnote) // optional proces
 			} else {
 				logDebug("Could not get status action resulting to no change")
 			}
+
 			var dispositionDate = aa.date.getCurrentDate();
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
+
 			if (useProcess)
 				aa.workflow.handleDisposition(capId, stepnumber, processID, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, dispo);
 			else
 				aa.workflow.handleDisposition(capId, stepnumber, wfstat, dispositionDate, wfnote, wfcomment, systemUserObj, dispo);
+
 			logMessage("Resulting Workflow Task: " + wfstr + " with status " + wfstat);
 			logDebug("Resulting Workflow Task: " + wfstr + " with status " + wfstat);
 		}
 	}
 } 
- 
 function runEvent(eventName, controlString) {
 	try {
 		var savePrefix = prefix; // store value of global variable
+
 		if (controlString) {
 			if (doStdChoices) {
 				doStandardChoiceActions(controlString, true, 0);
@@ -14715,6 +18631,7 @@ function runEvent(eventName, controlString) {
 				logDebug("runEvent:  Can't execute standard choices for control string " + controlString + " because doStdChoices is false");
 			}
 		}
+
 		prefix = lookup("EMSE_VARIABLE_BRANCH_PREFIX", eventName);
 		if (prefix) {
 			if (doScripts) {
@@ -14725,16 +18642,19 @@ function runEvent(eventName, controlString) {
 		} else {
 			logDebug("runEvent:  Can't execute scripts for event " + eventName + " because prefix is not defined in std Choice EMSE_VARIABLE_BRANCH_PREFIX");
 		}
+
 		prefix = savePrefix; // set it back
+
 	} catch (err) {
 		handleError(err, s);
 	}
 }
  
- 
 function runReport4Email(itemCap,reportName,conObj,rParams,eParams,emailTemplate,module,mailFrom) {
 	//If email address available for contact type then email the report, otherwise return false;
+
 	var reportSent = false;
+
 	if (conObj) {
 		if (!matches(conObj.people.getEmail(),null,undefined,"")) {
 			//Send the report via email
@@ -14753,15 +18673,17 @@ function runReport4Email(itemCap,reportName,conObj,rParams,eParams,emailTemplate
 	} else {
 		reportSent = false;
 	}
+
 	if (!reportSent) {
 		return false;
 	}
 }
  
- 
 function runReport4EmailOrPrint(itemCap,reportName,conObj,rParams,eParams,emailTemplate,module) {
 	//If email address available for contact type then email the report, otherwise pop up the report on the screen
+
 	var popUpReport = false;
+
 	if (conObj) {
 		if (!matches(conObj.people.getEmail(),null,undefined,"")) {
 			//Send the report via email
@@ -14781,13 +18703,13 @@ function runReport4EmailOrPrint(itemCap,reportName,conObj,rParams,eParams,emailT
 	} else {
 		popUpReport = true;
 	}
+
 	if (popUpReport) {
 		var rOutput = generateReport4Workflow(itemCap,reportName,module,rParams);
 		showMessage = true;
 		comment(rOutput);
 	}
 } 
- 
 /**
  * Runs a report with any specified parameters and attaches it to the record
  *
@@ -14804,19 +18726,27 @@ function runReport4EmailOrPrint(itemCap,reportName,conObj,rParams,eParams,emailT
  */
 function runReportAttach(itemCapId,aaReportName)
 	{
+
 	var reportName = aaReportName;
+
 	reportResult = aa.reportManager.getReportInfoModelByName(reportName);
+
 	if (!reportResult.getSuccess())
 		{ logDebug("**WARNING** couldn't load report " + reportName + " " + reportResult.getErrorMessage()); return false; }
+
 	var report = reportResult.getOutput(); 
+
 	var itemCap = aa.cap.getCap(itemCapId).getOutput();
 	itemAppTypeResult = itemCap.getCapType();
 	itemAppTypeString = itemAppTypeResult.toString(); 
 	itemAppTypeArray = itemAppTypeString.split("/");
+
 	report.setModule(itemAppTypeArray[0]); 
 	report.setCapId(itemCapId.getID1() + "-" + itemCapId.getID2() + "-" + itemCapId.getID3()); 
 	report.getEDMSEntityIdModel().setAltId(itemCapId.getCustomID());
+
 	var parameters = aa.util.newHashMap(); 
+
 	if(arguments.length > 2 && arguments[2].getClass().toString().equals("class java.lang.String")){
 		// optional parameters are report parameter pairs
 		// for example: runReportAttach(capId,"ReportName","altid",capId.getCustomID(),"months","12");
@@ -14830,7 +18760,9 @@ function runReportAttach(itemCapId,aaReportName)
 		// optional argument is a hashmap so assign it to parameters
 		parameters = arguments[2]
 	}
+
 	report.setReportParameters(parameters);
+
 	var permit = aa.reportManager.hasPermission(reportName,currentUserID); 
 	if(permit.getOutput().booleanValue()) 
 		{ 
@@ -14845,7 +18777,6 @@ function runReportAttach(itemCapId,aaReportName)
 		return false;
 	}
 } 
- 
 /**
  * Schedule Inspection
  * @param itemCap {capIDModel}
@@ -14868,6 +18799,7 @@ function scheduleInspect(itemCap,iType,DaysAhead) // optional inspector ID.  Thi
 		if (inspRes.getSuccess())
 			var inspectorObj = inspRes.getOutput();
 		}
+
 	if (arguments.length >= 4)
 	    if (arguments[3] != null)
 		    inspTime = arguments[3];
@@ -14875,6 +18807,7 @@ function scheduleInspect(itemCap,iType,DaysAhead) // optional inspector ID.  Thi
 	if (arguments.length == 5)
 	    if (arguments[4] != null)
 	        inspComm = arguments[4];
+
 	var schedRes = aa.inspection.scheduleInspection(itemCap, inspectorObj, aa.date.parseDate(dateAdd(null,DaysAhead)), inspTime, iType, inspComm)
 	
 	if (schedRes.getSuccess())
@@ -14882,7 +18815,6 @@ function scheduleInspect(itemCap,iType,DaysAhead) // optional inspector ID.  Thi
 	else
 		logDebug( "**ERROR: adding scheduling inspection (" + iType + "): " + schedRes.getErrorMessage());
 	}
- 
  
 function scheduleInspectDate(iType,DateToSched) // optional inspector ID.
 // DQ - Added Optional 4th parameter inspTime Valid format is HH12:MIAM or AM (SR5110)
@@ -14898,19 +18830,23 @@ function scheduleInspectDate(iType,DateToSched) // optional inspector ID.
 			if (inspRes.getSuccess())
 				inspectorObj = inspRes.getOutput();
 			}
+
         if (arguments.length >= 4)
             if(arguments[3] != null)
 		        inspTime = arguments[3];
+
 		if (arguments.length >= 5)
 		    if(arguments[4] != null)
 		        inspComm = arguments[4];
+
 	var schedRes = aa.inspection.scheduleInspection(capId, inspectorObj, aa.date.parseDate(DateToSched), inspTime, iType, inspComm)
+
 	if (schedRes.getSuccess())
 		logDebug("Successfully scheduled inspection : " + iType + " for " + DateToSched);
 	else
 		logDebug( "**ERROR: adding scheduling inspection (" + iType + "): " + schedRes.getErrorMessage());
 	}
- 
+
  
 function scheduleInspection(iType,DaysAhead) // optional inspector ID.  This function requires dateAdd function
 	{
@@ -14926,6 +18862,7 @@ function scheduleInspection(iType,DaysAhead) // optional inspector ID.  This fun
 		if (inspRes.getSuccess())
 			var inspectorObj = inspRes.getOutput();
 		}
+
 	if (arguments.length >= 4)
 	    if (arguments[3] != null)
 		    inspTime = arguments[3];
@@ -14933,6 +18870,7 @@ function scheduleInspection(iType,DaysAhead) // optional inspector ID.  This fun
 	if (arguments.length == 5)
 	    if (arguments[4] != null)
 	        inspComm = arguments[4];
+
 	var schedRes = aa.inspection.scheduleInspection(capId, inspectorObj, aa.date.parseDate(dateAdd(null,DaysAhead)), inspTime, iType, inspComm)
 	
 	if (schedRes.getSuccess())
@@ -14940,8 +18878,9 @@ function scheduleInspection(iType,DaysAhead) // optional inspector ID.  This fun
 	else
 		logDebug( "**ERROR: adding scheduling inspection (" + iType + "): " + schedRes.getErrorMessage());
 	}
+
  
- 
+
 function searchProject(pProjType,pSearchType) 
 {
 	// Searches Related Caps
@@ -14965,6 +18904,7 @@ function searchProject(pProjType,pSearchType)
          i += 1;
         }
         i -= 1;
+
 	getCapResult = aa.cap.getProjectParents(capId,i);
         myArray = new Array();
 	myOutArray = new Array();
@@ -14975,6 +18915,7 @@ function searchProject(pProjType,pSearchType)
 		if (typeArray.length != 4)
 			logDebug("**ERROR in childGetByCapType function parameter.  The following cap type parameter is incorrectly formatted: " + pCapType);
 	}
+
 	if (getCapResult.getSuccess())
 	{
 		parentArray = getCapResult.getOutput();
@@ -14995,10 +18936,13 @@ function searchProject(pProjType,pSearchType)
 					myArray.push(parentArray[x].getCapID());
 		}
 	}
+
 	if (!myArray.length)
 		return childArray;
+
 	searchArray = myArray;
 	var temp = ""
+
 
 	if(pSearchType != null)
 	{
@@ -15006,6 +18950,7 @@ function searchProject(pProjType,pSearchType)
 		if (typeArray.length != 4)
 			logDebug("**ERROR in childGetByCapType function parameter.  The following cap type parameter is incorrectly formatted: " + pSearchType);
 	}
+
 
 	while (true)
 		{
@@ -15042,7 +18987,9 @@ function searchProject(pProjType,pSearchType)
 								}		 
 							}
 						}
+
 				}
+
 			if(temp2Array.length)
 				searchArray = temp2Array;
 			else
@@ -15051,40 +18998,64 @@ function searchProject(pProjType,pSearchType)
 		}
 	return childArray;
 }
- 
+
  
  function sendNotification(emailFrom,emailTo,emailCC,templateName,params,reportFile)
+
 {
+
 	var itemCap = capId;
+
 	if (arguments.length == 7) itemCap = arguments[6]; // use cap ID specified in args
 
+
+
 	var id1 = itemCap.ID1;
+
  	var id2 = itemCap.ID2;
+
  	var id3 = itemCap.ID3;
+
+
 
 	var capIDScriptModel = aa.cap.createCapIDScriptModel(id1, id2, id3);
 
 
+
+
+
 	var result = null;
+
 	result = aa.document.sendEmailAndSaveAsDocument(emailFrom, emailTo, emailCC, templateName, params, capIDScriptModel, reportFile);
+
 	if(result.getSuccess())
+
 	{
+
 		logDebug("Sent email successfully!");
+
 		return true;
+
 	}
+
 	else
+
 	{
+
 		logDebug("Failed to send mail. - " + result.getErrorType());
+
 		return false;
+
 	}
+
 }
- 
  
 /**
  * Requires parity between CONTACT TYPE and CONTACT RELATIONSHIP standard choices
  */
 function setContactRelToContactType() {
 	try {
+
 		iCont = null;
 		contactArray = new Array();
 		contactArray = getContactArray();
@@ -15100,12 +19071,13 @@ function setContactRelToContactType() {
 	}
 }
  
- 
 function setContactsSyncFlag(syncFlagValue) {
   var itemCapId = capId;
+
   if (arguments.length > 1) {
     itemCapId = arguments[1];
   }
+
   var c = aa.people.getCapContactByCapID(itemCapId).getOutput();
   if (!c) logDebug("No contact found.");
   for (var i in c) {
@@ -15121,21 +19093,24 @@ function setContactsSyncFlag(syncFlagValue) {
   }
 }
  
- 
 function setContactTypeFlagByType(itemCap) {
 	
 	var contactsA = getContactObjs(itemCap);
+
 	for (var x in contactsA) {
 		thisContact = contactsA[x];
 		
 		var typeFlag = lookup("CONTACT TYPE FLAG",thisContact.type);
+
 		if (typeFlag == undefined)
 			continue; //skip if not setup in the lookup
+
 		thisContact.people.setContactTypeFlag(typeFlag);
+
 		thisContact.save();
 	}	
 }
- 
+
  
 function setIVR(ivrnum)
 	{
@@ -15146,107 +19121,192 @@ function setIVR(ivrnum)
 	capModel.setCapID(capIDModel);
 	aa.cap.editCapByPK(capModel);
 	*/
+
 	// new a CapScriptModel
 	var scriptModel = aa.cap.newCapScriptModel().getOutput();
+
 	// get a new CapModel
 	var capModel = scriptModel.getCapModel();
 	var capIDModel = capModel.getCapID();
+
 	capIDModel.setServiceProviderCode(scriptModel.getServiceProviderCode());
 	capIDModel.setID1(aa.env.getValue("PermitId1"));
 	capIDModel.setID2(aa.env.getValue("PermitId2"));
 	capIDModel.setID3(aa.env.getValue("PermitId3"));
+
 	capModel.setTrackingNbr(ivrnum);
 	capModel.setCapID(capIDModel);
+
 	// update tracking number
 	aa.cap.editCapByPK(capModel);
 	logDebug("IVR Tracking Number updated to " + ivrnum);
 	}
 
- 
+
  
  function setLicExpirationDate(itemCap) {
+
     //itemCap - license capId
+
     //the following are optional parameters
+
     //calcDateFrom - MM/DD/YYYY - the from date to use in the date calculation
+
     //dateOverride - MM/DD/YYYY - override the calculation, this date will be used
+
     //renewalStatus - if other than active override the status  
+
+
+
 
 
     var licNum = itemCap.getCustomID();
 
+
+
     if (arguments.length == 1) {
+
         calcDateFrom = null;
+
         dateOverride = null;
+
         renewalStatus = null;
+
     }
+
+
 
     if (arguments.length == 2) {
+
         calcDateFrom = arguments[1];
+
         dateOverride = null;
+
         renewalStatus = null;
+
     }
+
+
 
     if (arguments.length == 3) {
+
         calcDateFrom = arguments[1];
+
         dateOverride = arguments[2];
+
         renewalStatus = null;
+
     }
+
+
 
     if (arguments.length == 4) {
+
         calcDateFrom = arguments[1];
+
         dateOverride = arguments[2];
+
         renewalStatus = arguments[3];
+
     }
+
+
 
     var tmpNewDate = "";
+
     
+
     b1ExpResult = aa.expiration.getLicensesByCapID(itemCap);
+
     
+
     if (b1ExpResult.getSuccess()) {
 
+
+
         this.b1Exp = b1ExpResult.getOutput();
+
         //Get expiration details
+
         var expUnit = this.b1Exp.getExpUnit();
+
         var expInterval = this.b1Exp.getExpInterval();
 
+
+
         if(expUnit == null) {
+
             logDebug("Could not set the expiration date, no expiration unit defined for expiration code: " + this.b1Exp.getExpCode());
+
             return false;
+
         }
+
+
 
         if(expUnit == "Days") {
+
             tmpNewDate = dateAdd(calcDateFrom, expInterval);
+
         }
+
+
 
         if(expUnit == "Months") {
+
             tmpNewDate = dateAddMonths(calcDateFrom, expInterval);
+
         }
 
+
+
         if(expUnit == "Years") {
+
             tmpNewDate = dateAddMonths(calcDateFrom, expInterval * 12);
+
         }
+
     }
+
+
 
     thisLic = new licenseObject(licNum,itemCap); 
 
+
+
     if(dateOverride == null) {
+
         thisLic.setExpiration(dateAdd(tmpNewDate,0));
+
     } else {
+
         thisLic.setExpiration(dateAdd(dateOverride,0));
+
     }
 
+
+
     if(renewalStatus != null) {
+
         thisLic.setStatus(renewalStatus); 
+
     } else {
+
         thisLic.setStatus("Active"); 
+
     }
+
+
 
     logDebug("Successfully set the expiration date and status");
 
+
+
     return true;
 
+
+
 }
- 
  
 function setTask(wfstr, isOpen, isComplete) // optional process name isOpen, isComplete take 'Y' or 'N'
 {
@@ -15256,6 +19316,7 @@ function setTask(wfstr, isOpen, isComplete) // optional process name isOpen, isC
 		processName = arguments[3]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -15263,32 +19324,35 @@ function setTask(wfstr, isOpen, isComplete) // optional process name isOpen, isC
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			var stepnumber = fTask.getStepNumber();
 			var processID = fTask.getProcessID();
 			var completeFlag = fTask.getCompleteFlag();
+
 			if (useProcess)
 				aa.workflow.adjustTask(capId, stepnumber, processID, isOpen, isComplete, null, null);
 			else
 				aa.workflow.adjustTask(capId, stepnumber, isOpen, isComplete, null, null);
+
 				logDebug("set Workflow Task: " + wfstr);
 		}
 	}
 }
  
- 
 String.prototype.trim = String.prototype.trim || function() {
         return this.replace(/^\s+|\s+$/,"");
 }
+
 String.prototype.left = function(n) {
         return this.substr(0,n);
 };
+
 String.prototype.right = function(n) {
         return this.substr((this.length-n),this.length);
 }; 
- 
 function stripNN(fullStr) {
     var allowed = "0123456789.";
     var stripped = "";
@@ -15297,7 +19361,6 @@ function stripNN(fullStr) {
         stripped += String.fromCharCode(fullStr.charAt(i))
     return stripped;
 }
- 
  
 function taskCloseAllExcept(pStatus,pComment) 
 	{
@@ -15314,6 +19377,7 @@ function taskCloseAllExcept(pStatus,pComment)
 		}
 	else
 		closeAll = true;
+
 	var workflowResult = aa.workflow.getTasks(capId);
  	if (workflowResult.getSuccess())
   	 	var wfObj = workflowResult.getOutput();
@@ -15353,7 +19417,7 @@ function taskCloseAllExcept(pStatus,pComment)
 			}
 		}
 	}
- 
+
  
 function taskStatus(wfstr) // optional process name and capID
 {
@@ -15365,8 +19429,10 @@ function taskStatus(wfstr) // optional process name and capID
 		if (processName)
 			useProcess = true;
 	}
+
 	if (arguments.length == 3)
 		itemCap = arguments[2]; // use cap ID specified in args
+
 
 	var workflowResult = aa.workflow.getTaskItems(itemCap, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
@@ -15375,13 +19441,13 @@ function taskStatus(wfstr) // optional process name and capID
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName)))
 			return fTask.getDisposition()
 	}
 } 
- 
 /*
 DQ 09/03/2009 - Added Check to ensure Task status date is not null prior to getting status date
 Function will return false on fail
@@ -15391,12 +19457,14 @@ function taskStatusDate(wfstr) // optional process name, capId
 	var itemCap = capId;
 	if (arguments.length == 3)
 		itemCap = arguments[2]; // use cap ID specified in args
+
 	var useProcess = false;
 	var processName = "";
 	if (arguments.length > 1 && arguments[1] != null) {
 		processName = arguments[1]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(itemCap, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -15404,6 +19472,7 @@ function taskStatusDate(wfstr) // optional process name, capId
 		logMessage("**ERROR: Failed to get workflow object: " + wfObj.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName)))
@@ -15416,7 +19485,7 @@ function taskStatusDate(wfstr) // optional process name, capId
 	}
 }
  
- 
+
 function token(tstr)
 	{
 	if (!disableTokens)
@@ -15426,16 +19495,19 @@ function token(tstr)
 		}
 	return String(tstr);
   	}
+
  
- 
+
 function transferFeesAndPayments(sourceCapId, targetCapId) {
 	//
 	// Step 1: Unapply payments from the Source
 	//
 	var piresult = aa.finance.getPaymentByCapID(capId, null).getOutput()
+
 		var feeSeqArray = new Array();
 	var invoiceNbrArray = new Array();
 	var feeAllocationArray = new Array();
+
 	for (ik in piresult) {
 		var thisPay = piresult[ik];
 		var pfResult = aa.finance.getPaymentFeeItems(capId, null);
@@ -15448,6 +19520,7 @@ function transferFeesAndPayments(sourceCapId, targetCapId) {
 					feeAllocationArray.push(pfObj[ij].getFeeAllocation());
 				}
 		}
+
 		if (feeSeqArray.length > 0) {
 			z = aa.finance.applyRefund(capId, thisPay, feeSeqArray, invoiceNbrArray, feeAllocationArray, "FeeStat", "InvStat", "123");
 			if (z.getSuccess()) {
@@ -15457,10 +19530,13 @@ function transferFeesAndPayments(sourceCapId, targetCapId) {
 			}
 		}
 	}
+
 	//
 	// Step 2: add the fees to the target and void from the source
 	//
+
 	feeA = loadFees();
+
 	for (var x in feeA) {
 		thisFee = feeA[x];
 		logDebug("status is " + thisFee.status);
@@ -15472,64 +19548,84 @@ function transferFeesAndPayments(sourceCapId, targetCapId) {
 			} else {
 				logDebug("**ERROR: voiding fee item " + thisFee.code + "(" + thisFee.sequence + ") " + voidResult.getErrorMessage());
 			}
+
 			var feeSeqArray = new Array();
 			var paymentPeriodArray = new Array();
+
 			feeSeqArray.push(thisFee.sequence);
 			paymentPeriodArray.push(thisFee.period);
 			var invoiceResult_L = aa.finance.createInvoice(capId, feeSeqArray, paymentPeriodArray);
+
 			if (!invoiceResult_L.getSuccess())
 				logDebug("**ERROR: Invoicing the fee items voided " + feeCapMessage + " was not successful.  Reason: " + invoiceResult.getErrorMessage());
 		}
+
 	}
+
 	//
 	// Step 3: transfer the funds from Source to Target
 	//
+
 	var unapplied = paymentGetNotAppliedTot();
+
 	var xferResult = aa.finance.makeFundTransfer(capId, targetCapId, currentUserID, "", "", sysDate, sysDate, "", sysDate, unapplied, "NA", "Fund Transfer", "NA", "R", null, "", "NA", "");
 	if (xferResult.getSuccess())
 		logDebug("Successfully did fund transfer to : " + targetCapId.getCustomID());
 	else
 		logDebug("**ERROR: doing fund transfer to (" + targetCapId.getCustomID() + "): " + xferResult.getErrorMessage());
+
 	//
 	// Step 4: On the target, loop through payments then invoices to auto-apply
 	//
+
 	var piresult = aa.finance.getPaymentByCapID(targetCapId, null).getOutput()
+
 		for (ik in piresult) {
 			var feeSeqArray = new Array();
 			var invoiceNbrArray = new Array();
 			var feeAllocationArray = new Array();
+
 			var thisPay = piresult[ik];
 			var applyAmt = 0;
 			var unallocatedAmt = thisPay.getAmountNotAllocated()
+
 				if (unallocatedAmt > 0) {
+
 					var invArray = aa.finance.getInvoiceByCapID(targetCapId, null).getOutput()
+
 						for (var invCount in invArray) {
 							var thisInvoice = invArray[invCount];
 							var balDue = thisInvoice.getInvoiceModel().getBalanceDue();
 							if (balDue > 0) {
 								feeT = aa.invoice.getFeeItemInvoiceByInvoiceNbr(thisInvoice.getInvNbr()).getOutput();
+
 								for (targetFeeNum in feeT) {
 									var thisTFee = feeT[targetFeeNum];
+
 									if (thisTFee.getFee() > unallocatedAmt)
 										applyAmt = unallocatedAmt;
 									else
 										applyAmt = thisTFee.getFee(); // use balance here?
+
 									unallocatedAmt = unallocatedAmt - applyAmt;
+
 									feeSeqArray.push(thisTFee.getFeeSeqNbr());
 									invoiceNbrArray.push(thisInvoice.getInvNbr());
 									feeAllocationArray.push(applyAmt);
 								}
 							}
 						}
+
 						applyResult = aa.finance.applyPayment(targetCapId, thisPay, feeSeqArray, invoiceNbrArray, feeAllocationArray, "PAYSTAT", "INVSTAT", "123");
+
 					if (applyResult.getSuccess())
 						logDebug("Successfully applied payment");
 					else
 						logDebug("**ERROR: applying payment to fee (" + thisTFee.getFeeDescription() + "): " + applyResult.getErrorMessage());
+
 				}
 		}
 }
- 
  
 function transferFunds(parentAppNum,dollarAmount) 
 // does fund transfer from current app to parentAppNum, but only if current app has enough non-applied funds
@@ -15542,6 +19638,7 @@ function transferFunds(parentAppNum,dollarAmount)
 		logDebug("dollarAmount parameter is not a number, no funds will be transferred");
 		return false;
 		}
+
 	//check that enough non-applied funds are available
 	var fundsAvail = paymentGetNotAppliedTot();
 	if (fundsAvail < parseFloat(dollarAmount))
@@ -15550,6 +19647,7 @@ function transferFunds(parentAppNum,dollarAmount)
 		logMessage("Insufficient funds available. No funds transferred.");
 		return false;
 		}
+
 	//enough funds - proceed with transfer
 	var getCapResult = aa.cap.getCapID(parentAppNum);
 	if (getCapResult.getSuccess())
@@ -15557,6 +19655,7 @@ function transferFunds(parentAppNum,dollarAmount)
 		var parentId = getCapResult.getOutput();
 		
 		var xferResult = aa.finance.makeFundTransfer(capId, parentId, currentUserID, "", "", sysDate, sysDate, "", sysDate, dollarAmount, "NA", "Fund Transfer", "NA", "R", null, "", "NA", "");
+
 		
 		if (xferResult.getSuccess())
 			logDebug("Successfully did fund transfer to : " + parentAppNum);
@@ -15568,25 +19667,31 @@ function transferFunds(parentAppNum,dollarAmount)
 		logDebug( "**ERROR: getting parent cap id (" + parentAppNum + "): " + getCapResult.getErrorMessage()) 
 		}
 	}
- 
+
  
 function transferReceiptAndApply(receiptCapId,targetCapId)
 {
     var amtResult = parseFloat(aa.cashier.getSumNotAllocated(receiptCapId).getOutput());
+
     var bDueResult = aa.cashier.getTotalFeeAmount(targetCapId);
     var balanceDue = 0;
+
     if (bDueResult.getSuccess()) {
         balanceDue = bDueResult.getOutput();
     }
+
     var transferAmt = balanceDue;
+
     if (amtResult <= 0) {
         logDebug("insufficient funds to do transfer from receipt record");
         return false;
     }
+
     if (amtResult < balanceDue) {
         transferAmt = amtResult; 
     }
   
+
 
   var xferResult = aa.finance.makeFundTransfer(receiptCapId,targetCapId,currentUserID,"","",sysDate,sysDate,"",sysDate,transferAmt,"NA","Fund Transfer","NA","R",null,"","NA","");
   if (xferResult.getSuccess())
@@ -15594,19 +19699,25 @@ function transferReceiptAndApply(receiptCapId,targetCapId)
   else
        logDebug("Error transferring funds " + xferResult.getErrorMessage());
  
+
     var piresult = aa.finance.getPaymentByCapID(targetCapId,null).getOutput()
+
     for (ik in piresult)
         {
         var feeSeqArray = new Array();
         var invoiceNbrArray = new Array();
         var feeAllocationArray = new Array();
 
+
         var thisPay = piresult[ik];
         var applyAmt = 0;
         var unallocatedAmt = thisPay.getAmountNotAllocated()
+
         if (unallocatedAmt > 0)
             {
+
             var invArray = aa.finance.getInvoiceByCapID(targetCapId, null).getOutput()
+
             for (var invCount in invArray)
                 {
                 var thisInvoice = invArray[invCount];
@@ -15614,21 +19725,27 @@ function transferReceiptAndApply(receiptCapId,targetCapId)
                 if (balDue > 0)
                     {
                     feeT = aa.invoice.getFeeItemInvoiceByInvoiceNbr(thisInvoice.getInvNbr()).getOutput();
+
                     for (targetFeeNum in feeT)
                         {
                         var thisTFee = feeT[targetFeeNum];
+
                         if (thisTFee.getFee() > unallocatedAmt)
                             applyAmt = unallocatedAmt;
                         else
                             applyAmt = thisTFee.getFee()   // use balance here?
+
                         unallocatedAmt = unallocatedAmt - applyAmt;
+
                         feeSeqArray.push(thisTFee.getFeeSeqNbr());
                         invoiceNbrArray.push(thisInvoice.getInvNbr());
                         feeAllocationArray.push(applyAmt);
                         }
                     }
                 }
+
                 applyResult = aa.finance.applyPayment(targetCapId,thisPay,feeSeqArray, invoiceNbrArray, feeAllocationArray, "PAYSTAT", "INVSTAT", "123")
+
                 if (applyResult.getSuccess()) {
                     logDebug("Successfully applied payment");
                     return transferAmt;
@@ -15639,50 +19756,77 @@ function transferReceiptAndApply(receiptCapId,targetCapId)
                     return false;
                 }
                     
+
             }
     }
+
 } 
- 
 function updateAppStatus(stat,cmt) // optional cap id
 {
 	var itemCap = capId;
 	if (arguments.length == 3) 
 		itemCap = arguments[2]; // use cap ID specified in args
+
 	var updateStatusResult = aa.cap.updateAppStatus(itemCap, "APPLICATION", stat, sysDate, cmt, systemUserObj);
 	if (updateStatusResult.getSuccess())
 		logDebug("Updated application status to " + stat + " successfully.");
 	else
 		logDebug("**ERROR: application status update to " + stat + " was unsuccessful.  The reason is "  + updateStatusResult.getErrorType() + ":" + updateStatusResult.getErrorMessage());
 }
- 
+
  
  function updateEnfOfficer(enfName) // option CapId
+
     {
+
     var itemCap = capId
+
     if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
 
+
+
     var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
+
     if (!cdScriptObjResult.getSuccess())
+
         { logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
+
 
     var cdScriptObj = cdScriptObjResult.getOutput();
 
+
+
     if (!cdScriptObj)
+
         { logDebug("**ERROR: No cap detail script object") ; return false; }
+
+
 
     cd = cdScriptObj.getCapDetailModel();
 
+
+
     cd.setEnforceOfficerName(enfName);
+
+
 
     cdWrite = aa.cap.editCapDetail(cd)
 
+
+
     if (cdWrite.getSuccess())
+
         { logDebug("updated enf officer name to " + enfName) }
+
     else
+
         { logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
+
     }
 
- 
+
+
  
 function updateFee(fcode, fsched, fperiod, fqty, finvoice, pDuplicate, pFeeSeq) {
 	// Updates an assessed fee with a new Qty.  If not found, adds it; else if invoiced fee found, adds another with adjusted qty.
@@ -15690,19 +19834,23 @@ function updateFee(fcode, fsched, fperiod, fqty, finvoice, pDuplicate, pFeeSeq) 
 	// Script will return fee sequence number if new fee is added otherwise it will return null (SR5112)
 	// Optional param pSeqNumber, Will attempt to update the specified Fee Sequence Number or Add new (SR5112)
 	// 12/22/2008 - DQ - Correct Invoice loop to accumulate instead of reset each iteration
+
 	// If optional argument is blank, use default logic (i.e. allow duplicate fee if invoiced fee is found)
 	if (pDuplicate == null || pDuplicate.length == 0)
 		pDuplicate = "Y";
 	else
 		pDuplicate = pDuplicate.toUpperCase();
+
 	var invFeeFound = false;
 	var adjustedQty = fqty;
 	var feeSeq = null;
 	feeUpdated = false;
+
 	if (pFeeSeq == null)
 		getFeeResult = aa.finance.getFeeItemByFeeCode(capId, fcode, fperiod);
 	else
 		getFeeResult = aa.finance.getFeeItemByPK(capId, pFeeSeq);
+
 	if (getFeeResult.getSuccess()) {
 		if (pFeeSeq == null)
 			var feeList = getFeeResult.getOutput();
@@ -15721,10 +19869,12 @@ function updateFee(fcode, fsched, fperiod, fqty, finvoice, pDuplicate, pFeeSeq) 
 					logDebug("Invoiced fee " + fcode + " found.  Not updating this fee. Not assessing new fee " + fcode);
 				}
 			}
+
 			if (feeList[feeNum].getFeeitemStatus().equals("NEW")) {
 				adjustedQty = adjustedQty - feeList[feeNum].getFeeUnit();
 			}
 		}
+
 		for (feeNum in feeList)
 			if (feeList[feeNum].getFeeitemStatus().equals("NEW") && !feeUpdated) // update this fee item
 			{
@@ -15745,6 +19895,7 @@ function updateFee(fcode, fsched, fperiod, fqty, finvoice, pDuplicate, pFeeSeq) 
 	} else {
 		logDebug("**ERROR: getting fee items (" + fcode + "): " + getFeeResult.getErrorMessage())
 	}
+
 	// Add fee if no fee has been updated OR invoiced fee already exists and duplicates are allowed
 	if (!feeUpdated && adjustedQty != 0 && (!invFeeFound || invFeeFound && pDuplicate == "Y"))
 		feeSeq = addFee(fcode, fsched, fperiod, adjustedQty, finvoice);
@@ -15753,7 +19904,6 @@ function updateFee(fcode, fsched, fperiod, fqty, finvoice, pDuplicate, pFeeSeq) 
 	updateFeeItemInvoiceFlag(feeSeq, finvoice);
 	return feeSeq;
 } 
- 
 function updateFeeItemInvoiceFlag(feeSeq,finvoice)
 {
 	if(feeSeq == null)
@@ -15770,23 +19920,29 @@ function updateFeeItemInvoiceFlag(feeSeq,finvoice)
 	}
 }
  
- 
 function updateGuidesheetASIField(inspId,gName,gItem,asiGroup,asiSubGroup, asiLabel,newValue) {
 	//updates the guidesheet ID to nGuideSheetID if not currently populated
 	//optional capId
+
 	var itemCap = capId;
 	//if (arguments > 7) itemCap = arguments[7];
+
 	var r = aa.inspection.getInspections(itemCap);
+
 	if (r.getSuccess()) {
 		var inspArray = r.getOutput();
+
 		for (i in inspArray) {
 			if (inspArray[i].getIdNumber() == inspId) {
 				var inspModel = inspArray[i].getInspection();
+
 				var gs = inspModel.getGuideSheets();
+
 				if (gs) {
 					for(var i=0;i< gs.size();i++) {
 						var guideSheetObj = gs.get(i);
 						if (guideSheetObj && gName.toUpperCase() == guideSheetObj.getGuideType().toUpperCase()) {
+
 							var guidesheetItem = guideSheetObj.getItems();
 							for(var j=0;j< guidesheetItem.size();j++) {
 								var item = guidesheetItem.get(j);
@@ -15815,6 +19971,7 @@ function updateGuidesheetASIField(inspId,gName,gItem,asiGroup,asiSubGroup, asiLa
 									}
 								}
 							}							
+
 							//Update the guidesheet
 							var updateResult = aa.guidesheet.updateGGuidesheet(guideSheetObj,guideSheetObj.getAuditID());
 							if (updateResult.getSuccess()) {
@@ -15840,19 +19997,24 @@ function updateGuidesheetASIField(inspId,gName,gItem,asiGroup,asiSubGroup, asiLa
 	logDebug("No updates to the guidesheet made");
 	return false;
 }  
- 
 function updateGuidesheetID(inspId,gName,nGuideSheetID) {
 	//updates the guidesheet ID to nGuideSheetID if not currently populated
 	//optional capId
+
 	var itemCap = capId;
 	if (arguments > 2) itemCap = arguments[2];
+
 	var r = aa.inspection.getInspections(itemCap);
+
 	if (r.getSuccess()) {
 		var inspArray = r.getOutput();
+
 		for (i in inspArray) {
 			if (inspArray[i].getIdNumber() == inspId) {
 				var inspModel = inspArray[i].getInspection();
+
 				var gs = inspModel.getGuideSheets();
+
 				if (gs) {
 					gsArray = gs.toArray();
 					for (var loopk in gsArray) {
@@ -15882,18 +20044,20 @@ function updateGuidesheetID(inspId,gName,nGuideSheetID) {
 	logDebug("No updates to the guidesheet made");
 	return false;
 } 
- 
 function updatePlanReviewWorkflow(wfTask,status,wfComments,updateIndicator) {
 	// updateIndicator determines if to update workflow or inspection
 	// if a value of "W" workflow will be updated
 	// if a value of "I" inspection will be updated
 	// otherwise will return a false
+
 	if (updateIndicator == "I") {
 		var sysDateYYYYMMDD = dateFormatted(sysDate.getMonth(),sysDate.getDayOfMonth(),sysDate.getYear(),"YYYY-MM-DD");
 		resultInspection(wfTask,status,sysDateYYYYMMDD,wfComments);
 	} else if (updateIndicator == "W") {
 		var action = "";
+
 		action = lookup(docReviewStatusStdChoice,status);
+
 		if (!matches(action,"",undefined)) {
 			if (action == "Next") {
 				closeTask(wfTask,status,wfComments,"");
@@ -15917,11 +20081,11 @@ function updatePlanReviewWorkflow(wfTask,status,wfComments,updateIndicator) {
 			
 		}
 	} else {
+
 		logDebug("updateIndicator of " + updateIndicator + "is not a valid value only W or I are expected");
 		return false;
 	}
 }
- 
  
 function updateRefParcelToCap() //Takes Optional CapId
 {
@@ -15944,6 +20108,7 @@ function updateRefParcelToCap() //Takes Optional CapId
 					var prcl = prclArr[0].getParcelModel();
 					var refParcelNumber = prcl.getParcelNumber();
 					var capPrclObj = aa.parcel.warpCapIdParcelModel2CapParcelModel(vCapId, prcl);
+
 					if (capPrclObj.getSuccess()) {
 						
 						var capPrcl = capPrclObj.getOutput();
@@ -15953,6 +20118,7 @@ function updateRefParcelToCap() //Takes Optional CapId
 						logDebug("Updated Parcel " + capPrclArr[x].getParcelNumber() + " with Reference Data");
 					} else
 						logDebug("Failed to Wrap Parcel Model for " + capPrclArr[x].getParcelNumber());
+
 				} else
 					logDebug("No matching reference Parcels found for " + capPrclArr[x].getParcelNumber());
 			} else
@@ -15960,26 +20126,33 @@ function updateRefParcelToCap() //Takes Optional CapId
 		}
 	}
 }  
- 
+
 function updateShortNotes(newSN) // option CapId
 	{
 	var itemCap = capId
 	if (arguments.length > 1) itemCap = arguments[1]; // use cap ID specified in args
+
 	var cdScriptObjResult = aa.cap.getCapDetail(itemCap);
 	if (!cdScriptObjResult.getSuccess())
 		{ logDebug("**ERROR: No cap detail script object : " + cdScriptObjResult.getErrorMessage()) ; return false; }
+
 	var cdScriptObj = cdScriptObjResult.getOutput();
+
 	if (!cdScriptObj)
 		{ logDebug("**ERROR: No cap detail script object") ; return false; }
+
 	cd = cdScriptObj.getCapDetailModel();
+
 	cd.setShortNotes(newSN);
+
 	cdWrite = aa.cap.editCapDetail(cd)
+
 	if (cdWrite.getSuccess())
 		{ logDebug("updated short notes to " + newSN) }
 	else
 		{ logDebug("**ERROR writing capdetail : " + cdWrite.getErrorMessage()) ; return false ; }
 	}
- 
+
  
 function updateTask(wfstr, wfstat, wfcomment, wfnote) // optional process name, cap id
 {
@@ -15994,6 +20167,7 @@ function updateTask(wfstr, wfstat, wfcomment, wfnote) // optional process name, 
 	var itemCap = capId;
 	if (arguments.length == 6)
 		itemCap = arguments[5]; // use cap ID specified in args
+
 	var workflowResult = aa.workflow.getTaskItems(itemCap, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -16001,8 +20175,10 @@ function updateTask(wfstr, wfstat, wfcomment, wfnote) // optional process name, 
 		logMessage("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	if (!wfstat)
 		wfstat = "NA";
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
@@ -16019,7 +20195,6 @@ function updateTask(wfstr, wfstat, wfcomment, wfnote) // optional process name, 
 	}
 }
  
- 
 function updateTaskAssignedDate(wfstr, wfAssignDate) // optional process name
 {
 	// Update the task assignment date
@@ -16030,6 +20205,7 @@ function updateTaskAssignedDate(wfstr, wfAssignDate) // optional process name
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		var wfObj = workflowResult.getOutput();
@@ -16037,6 +20213,7 @@ function updateTaskAssignedDate(wfstr, wfAssignDate) // optional process name
 		logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (i in wfObj) {
 		var fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
@@ -16046,6 +20223,7 @@ function updateTaskAssignedDate(wfstr, wfAssignDate) // optional process name
 			if (assignDate) {
 				var taskItem = fTask.getTaskItem();
 				taskItem.setAssignmentDate(assignDate);
+
 				var adjustResult = aa.workflow.adjustTaskWithNoAudit(taskItem);
 				if (adjustResult.getSuccess())
 					logDebug("Updated Workflow Task : " + wfstr + " Assigned Date to " + wfAssignDate);
@@ -16056,7 +20234,6 @@ function updateTaskAssignedDate(wfstr, wfAssignDate) // optional process name
 		}
 	}
 } 
- 
 function updateTaskDepartment(wfstr, wfDepartment) // optional process name
 {
 	// Update the task assignment department
@@ -16067,6 +20244,7 @@ function updateTaskDepartment(wfstr, wfDepartment) // optional process name
 		processName = arguments[2]; // subprocess
 		useProcess = true;
 	}
+
 	var workflowResult = aa.workflow.getTaskItems(capId, wfstr, processName, null, null, null);
 	if (workflowResult.getSuccess())
 		wfObj = workflowResult.getOutput();
@@ -16074,14 +20252,17 @@ function updateTaskDepartment(wfstr, wfDepartment) // optional process name
 		logDebug("**ERROR: Failed to get workflow object: " + workflowResult.getErrorMessage());
 		return false;
 	}
+
 	for (var i in wfObj) {
 		fTask = wfObj[i];
 		if (fTask.getTaskDescription().toUpperCase().equals(wfstr.toUpperCase()) && (!useProcess || fTask.getProcessCode().equals(processName))) {
 			if (wfDepartment) {
 				var taskUserObj = fTask.getTaskItem().getAssignedUser()
 					taskUserObj.setDeptOfUser(wfDepartment);
+
 				fTask.setAssignedUser(taskUserObj);
 				var taskItem = fTask.getTaskItem();
+
 				var adjustResult = aa.workflow.assignTask(taskItem);
 				if (adjustResult.getSuccess())
 					logDebug("Updated Workflow Task : " + wfstr + " Department Set to " + wfDepartment);
@@ -16093,19 +20274,21 @@ function updateTaskDepartment(wfstr, wfDepartment) // optional process name
 	}
 }
  
- 
 function updateWorkDesc(newWorkDes) // optional CapId
 {
 	var itemCap = capId
 		if (arguments.length > 1)
 			itemCap = arguments[1]; // use cap ID specified in args
 
+
 		var workDescResult = aa.cap.getCapWorkDesByPK(itemCap);
 	var workDesObj;
+
 	if (!workDescResult.getSuccess()) {
 		aa.print("**ERROR: Failed to get work description: " + workDescResult.getErrorMessage());
 		return false;
 	}
+
 	var workDesScriptObj = workDescResult.getOutput();
 	if (workDesScriptObj) {
 		workDesObj = workDesScriptObj.getCapWorkDesModel();
@@ -16113,11 +20296,13 @@ function updateWorkDesc(newWorkDes) // optional CapId
 		aa.print("**ERROR: Failed to get workdes Obj: " + workDescResult.getErrorMessage());
 		return false;
 	}
+
 	workDesObj.setDescription(newWorkDes);
 	aa.cap.editCapWorkDes(workDesObj);
+
 	aa.print("Updated Work Description to : " + newWorkDes);
+
 }
- 
  
 /**
  * User Object
@@ -16158,6 +20343,7 @@ function userObj(vUserId){
 	
 	if(vUserId)
 		iNameResult = aa.person.getUser(vUserId.toUpperCase());
+
 	if (iNameResult.getSuccess()){
 		var iUserObj = null;
 		iUserObj = iNameResult.getOutput();
@@ -16195,6 +20381,7 @@ function userObj(vUserId){
             addParameter(params, "$$" + userType + "FullName$$", this.userFullName);
             return params;
             }
+
 	this.getUserDistricts = function () {
 		var result = aa.people.getUserDistricts(this.userID);
 		var userDistrictModelArray = result.getOutput();
@@ -16225,7 +20412,6 @@ function userObj(vUserId){
 		return disciplineArray;
 	}	
 } 
- 
 function validateGisObjects()
 	{
 	// returns true if the app has GIS objects that validate in GIS
@@ -16235,9 +20421,11 @@ function validateGisObjects()
 		var fGisObj = gisObjResult.getOutput();
 	else
 		{ logDebug("**WARNING: Getting GIS objects for Cap.  Reason is: " + gisObjResult.getErrorType() + ":" + gisObjResult.getErrorMessage()) ; return false }
+
 	for (a1 in fGisObj) // for each GIS object on the Cap
 		{
 		var gischk = aa.gis.getGISObjectAttributes(fGisObj[a1]);
+
 		if (gischk.getSuccess())
 			var gisres = gischk.getOutput();
 		else
@@ -16247,23 +20435,27 @@ function validateGisObjects()
 			return true;  // we have a gis object from GIS
 		}
 	}
- 
+
  
 /*  Verhoeff algorithm for check digit	http://en.wikipedia.org/wiki/Verhoeff_algorithm
+
 	usage:  
 		x = new verhoeff();
 		y = x.compute("524243");
 		aa.print(x.check(y));
 */
+
 function verhoeff() {
 	var F = new Array();
 	F[ 0 ] = new Array( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 );
 	F[ 1 ] = new Array( 1, 5, 7, 6, 2, 8, 3, 0, 9, 4 );
+
 	for ( var i = 2; i < 8; i++ ) {
 	    F[ i ] = new Array();
 	    for ( var j = 0; j < 10; j++ )
 	        F[ i ][ j ] = F[ i - 1 ][ F[ 1 ][ j ]];
 	}
+
 	Op = new Array();
 	Op[0] = new Array( 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 );
 	Op[1] = new Array( 1, 2, 3, 4, 0, 6, 7, 8, 9, 5 );
@@ -16275,6 +20467,7 @@ function verhoeff() {
 	Op[7] = new Array( 7, 6, 5, 9, 8, 2, 1, 0, 4, 3 );
 	Op[8] = new Array( 8, 7, 6, 5, 9, 3, 2, 1, 0, 4 );
 	Op[9] = new Array( 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 );
+
 	Inv = new Array( 0, 4, 3, 2, 1, 5, 6, 7, 8, 9 );
 	
 	reverse_str =  function( str )	{
@@ -16283,6 +20476,7 @@ function verhoeff() {
 	        rev = rev + str.charAt( i );
 	    return rev;
 	}
+
 	this.check =  function ( num )	{
 	    var a = reverse_str( num );
 	    var check = 0;
@@ -16293,6 +20487,7 @@ function verhoeff() {
 	    else
 	        return true;
 	}
+
 	this.compute = function(num) {
 	    var a = "x" + reverse_str( num );
 	    var check = 0;
@@ -16301,7 +20496,6 @@ function verhoeff() {
 	    return num + Inv[ check ];
 	}
 } 
- 
 function workDescGet(pCapId)
 	{
 	//Gets work description
@@ -16321,16 +20515,16 @@ function workDescGet(pCapId)
 	return workDesc;
 	}
 	 
- 
 function zeroPad(num,count)
 { 
 var numZeropad = num + '';
 while(numZeropad.length < count) {
+
 numZeropad = "0" + numZeropad; 
 }
 return numZeropad;
 } 
- 
+
 
 
 /**
